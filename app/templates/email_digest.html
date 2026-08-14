@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+</head>
+<body style="font-family: -apple-system, Helvetica, Arial, sans-serif; background:#f5f5f7; margin:0; padding:24px;">
+  <div style="max-width:680px; margin:0 auto; background:#ffffff; border-radius:12px; padding:28px; border:1px solid #e5e5ea;">
+
+    <h2 style="margin:0 0 4px 0; color:#1d1d1f;">📚 {{ subscription.label }}</h2>
+    <p style="color:#6e6e73; margin:0 0 20px 0; font-size:14px;">
+      本次共 {{ articles|length }} 篇新文献 &middot; {{ articles|length }} new article(s) this time
+    </p>
+
+    {% for a in articles %}
+    <div style="padding:16px 0; border-top:1px solid #e5e5ea;">
+      <div style="font-size:12px; color:#0a84ff; font-weight:600; margin-bottom:4px;">🆕 NEW</div>
+      <a href="{{ a.pubmed_url }}" style="font-size:16px; font-weight:600; color:#1d1d1f; text-decoration:none;">
+        {{ a.title }}
+      </a>
+      <div style="font-size:13px; color:#6e6e73; margin-top:6px;">
+        {{ a.authors }}
+      </div>
+      <div style="font-size:13px; color:#6e6e73; margin-top:2px;">
+        <b>{{ a.journal }}</b>{% if a.pub_date %} &middot; {{ a.pub_date }}{% endif %}
+        {% if a.sjr_quartile %}
+          &middot; <span style="background:#eef6ff; color:#0a5cd8; padding:1px 6px; border-radius:4px;">SJR {{ a.sjr_quartile }}</span>
+        {% endif %}
+      </div>
+
+      {% if a.ai_summary %}
+      <div style="margin-top:10px; padding:10px 12px; background:#f5f9ff; border-left:3px solid #0a84ff; font-size:13px; color:#1d1d1f;">
+        <b>🤖 AI 总结:</b> {{ a.ai_summary }}
+      </div>
+      {% endif %}
+
+      {% if a.abstract %}
+      <details style="margin-top:8px;">
+        <summary style="font-size:13px; color:#0a84ff; cursor:pointer;">摘要 Abstract</summary>
+        <p style="font-size:13px; color:#3a3a3c; line-height:1.5;">{{ a.abstract }}</p>
+      </details>
+      {% endif %}
+
+      {% if a.doi %}
+      <div style="font-size:12px; color:#8e8e93; margin-top:6px;">DOI: {{ a.doi }}</div>
+      {% endif %}
+    </div>
+    {% endfor %}
+
+    <p style="margin-top:24px; font-size:11px; color:#aeaeb2; border-top:1px solid #e5e5ea; padding-top:12px;">
+      期刊分区数据来自 Scimago (SJR)，非官方 JCR / 中科院分区数据，仅供参考。<br>
+      Journal quartile data is from Scimago (SJR), an approximation — not the official JCR / CAS partition data.<br>
+      由 PubMed Alert 自动发送 &middot; Sent automatically by PubMed Alert
+    </p>
+  </div>
+</body>
+</html>

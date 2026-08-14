@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block title %}{{ t("edit_subscription_title") if sub else t("new_subscription_title") }} - PubMed Alert{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <h1>{{ t("edit_subscription_title") if sub else t("new_subscription_title") }}</h1>
+  <a class="btn secondary" href="/">{{ t("back") }}</a>
+</div>
+
+{% if not sub %}
+<div class="banner ok">{{ t("initial_poll_hint") }}</div>
+{% endif %}
+
+<div class="card">
+<form class="stack" method="post"
+      action="{{ '/subscriptions/%d/edit' % sub.id if sub else '/subscriptions/new' }}">
+
+  <label>{{ t("field_label") }}</label>
+  <input type="text" name="label" required placeholder="e.g. Tumor Immunotherapy Updates"
+         value="{{ sub.label if sub else '' }}">
+
+  <label>{{ t("field_keywords_label") }}</label>
+  <div class="hint">{{ t("field_keywords_hint") }}</div>
+  <textarea name="keywords" placeholder="CRISPR&#10;single-cell RNA sequencing">{{ sub.keywords | join("\n") if sub else "" }}</textarea>
+
+  <label>{{ t("field_journals_label") }}</label>
+  <div class="hint">{{ t("field_journals_hint") }}</div>
+  <textarea name="journals" placeholder="Nature&#10;Cell">{{ sub.journals | join("\n") if sub else "" }}</textarea>
+
+  <label>{{ t("field_authors_label") }}</label>
+  <div class="hint">{{ t("field_authors_hint") }}</div>
+  <textarea name="authors" placeholder="Zhang Wei">{{ sub.authors | join("\n") if sub else "" }}</textarea>
+
+  <label>{{ t("field_query_override_label") }}</label>
+  <div class="hint">{{ t("field_query_override_hint") }}</div>
+  <textarea name="query_override" placeholder='("CRISPR"[Title/Abstract]) AND ("Nature"[Journal])'>{{ sub.query_override or "" if sub else "" }}</textarea>
+
+  <label>{{ t("field_recipient_label") }}</label>
+  <input type="email" name="recipient_email" required placeholder="you@example.com"
+         value="{{ sub.recipient_email if sub else '' }}">
+
+  <label>{{ t("field_frequency_label") }}</label>
+  <select name="frequency">
+    {% for choice in frequency_choices %}
+    <option value="{{ choice }}" {{ "selected" if sub and sub.frequency == choice else "" }}>
+      {{ t("freq_" + choice) }}
+    </option>
+    {% endfor %}
+  </select>
+
+  <div class="actions">
+    <button class="btn" type="submit">{{ t("btn_save") if sub else t("btn_create") }}</button>
+  </div>
+</form>
+</div>
+
+{% endblock %}

@@ -1,0 +1,246 @@
+"""极简的界面多语言支持：中文 / English / 日本語。
+Minimal UI i18n support: Chinese / English / Japanese.
+"""
+
+SUPPORTED_LANGS = ["zh", "en", "ja"]
+DEFAULT_LANG = "zh"
+LANG_NAMES = {"zh": "中文", "en": "English", "ja": "日本語"}
+
+TRANSLATIONS = {
+    "zh": {
+        "app_subtitle": "论文订阅提醒",
+        "nav_subscriptions": "订阅",
+        "nav_settings": "设置",
+
+        "banner_mailer_not_configured": "⚠️ 尚未配置 Gmail 发件账号，邮件无法发送。请前往「设置」页面填写。",
+        "banner_sjr_not_available": "⚠️ 未找到 SJR 期刊分区数据文件，邮件中将不显示分区信息。详见 README。",
+
+        "my_subscriptions": "我的订阅",
+        "new_subscription_btn": "+ 新建订阅",
+        "empty_state": "还没有任何订阅，点击右上角「新建订阅」开始吧。",
+        "badge_active": "运行中",
+        "badge_paused": "已暂停",
+
+        "freq_immediate": "有新文献立即发送",
+        "freq_daily": "每天汇总",
+        "freq_every_3_days": "每3天汇总",
+        "freq_weekly": "每周汇总",
+
+        "label_recipient": "收件邮箱",
+        "label_keywords": "关键词",
+        "label_journals": "期刊",
+        "label_authors": "作者",
+        "label_last_sent": "上次发送",
+        "never": "从未",
+
+        "btn_view_articles": "查看文献",
+        "btn_edit": "编辑",
+        "btn_poll_now": "立即检查",
+        "btn_pause": "暂停",
+        "btn_resume": "启用",
+        "btn_delete": "删除",
+        "confirm_delete": "确定删除该订阅？",
+
+        "edit_subscription_title": "编辑订阅",
+        "new_subscription_title": "新建订阅",
+        "back": "← 返回",
+
+        "field_label": "订阅名称",
+        "field_keywords_label": "关键词（每行一个，标题/摘要中出现任意一个即匹配，多个关键词之间是「或」关系）",
+        "field_keywords_hint": "每行一个；匹配标题/摘要，多个关键词之间是「或」关系。",
+        "field_journals_label": "指定期刊（每行一个，可选）",
+        "field_journals_hint": "可选，每行一个期刊名。",
+        "field_authors_label": "指定作者（每行一个，可选）",
+        "field_authors_hint": "可选，每行一个作者名，例如 \"Zhang Wei\"。",
+        "field_query_override_label": "高级：自定义 PubMed 检索式（可选，填写后将忽略上面三项）",
+        "field_query_override_hint": "高级用法：原始 PubMed 检索式，填写后会覆盖上面关键词/期刊/作者。",
+        "field_recipient_label": "收件邮箱",
+        "field_frequency_label": "发送频率",
+        "btn_save": "保存",
+        "btn_create": "创建",
+        "initial_poll_hint": "💡 新订阅首次检查会发送近5年内最相关的10篇文献；之后每次检查只发送新更新的文献。",
+
+        "preview_empty_state": "还没有发现任何文献，点击列表页的「立即检查」试试。",
+        "status_sent": "已发送",
+        "status_pending": "待发送",
+        "label_first_seen": "发现于",
+
+        "settings_title": "系统设置",
+        "settings_gmail_section": "发件邮箱 (Gmail)",
+        "settings_poll_note": "💡 检索节奏由每个订阅自己的「发送频率」决定：立即发送的订阅每15分钟左右检查一次；每天/每3天/每周汇总的订阅只在到期那一刻才检索一次，不会白白浪费请求。",
+        "settings_gmail_address_label": "Gmail 地址",
+        "settings_gmail_password_label": "应用专用密码",
+        "settings_gmail_password_hint": "留空则保持原有密码不变。生成方法见 README「Gmail 配置」一节。",
+        "settings_ncbi_label": "NCBI API Key（可选）",
+        "settings_ncbi_hint": "提高 PubMed 请求速率限制，免费申请：ncbi.nlm.nih.gov/account/settings",
+        "btn_save_settings": "保存设置",
+        "settings_saved": "✅ 设置已保存。",
+        "settings_test_email_section": "发送测试邮件",
+        "settings_test_email_label": "收件地址",
+        "btn_send_test_email": "发送测试邮件",
+        "test_email_success": "✅ 测试邮件已发送，请查收。",
+        "test_email_failure": "❌ 发送失败：",
+        "settings_language_label": "界面语言",
+    },
+    "en": {
+        "app_subtitle": "Paper Subscription Alerts",
+        "nav_subscriptions": "Subscriptions",
+        "nav_settings": "Settings",
+
+        "banner_mailer_not_configured": "⚠️ Gmail sender account not configured yet — emails can't be sent. Set it up on the Settings page.",
+        "banner_sjr_not_available": "⚠️ SJR journal ranking data file not found — quartile info will be omitted from emails. See README.",
+
+        "my_subscriptions": "My Subscriptions",
+        "new_subscription_btn": "+ New Subscription",
+        "empty_state": "No subscriptions yet — click \"New Subscription\" above to get started.",
+        "badge_active": "active",
+        "badge_paused": "paused",
+
+        "freq_immediate": "Immediately",
+        "freq_daily": "Daily digest",
+        "freq_every_3_days": "Every 3 days",
+        "freq_weekly": "Weekly digest",
+
+        "label_recipient": "recipient",
+        "label_keywords": "keywords",
+        "label_journals": "journals",
+        "label_authors": "authors",
+        "label_last_sent": "last sent",
+        "never": "never",
+
+        "btn_view_articles": "View articles",
+        "btn_edit": "Edit",
+        "btn_poll_now": "Poll now",
+        "btn_pause": "Pause",
+        "btn_resume": "Resume",
+        "btn_delete": "Delete",
+        "confirm_delete": "Delete this subscription?",
+
+        "edit_subscription_title": "Edit Subscription",
+        "new_subscription_title": "New Subscription",
+        "back": "← Back",
+
+        "field_label": "Label",
+        "field_keywords_label": "Keywords",
+        "field_keywords_hint": "One per line. Matches Title/Abstract; multiple keywords are combined with OR.",
+        "field_journals_label": "Journals (optional)",
+        "field_journals_hint": "Optional. One journal name per line.",
+        "field_authors_label": "Authors (optional)",
+        "field_authors_hint": "Optional. One author name per line, e.g. \"Zhang Wei\".",
+        "field_query_override_label": "Advanced: raw PubMed query (optional, overrides the three fields above)",
+        "field_query_override_hint": "Advanced: raw PubMed query string. If filled, overrides keywords/journals/authors above.",
+        "field_recipient_label": "Recipient email",
+        "field_frequency_label": "Frequency",
+        "btn_save": "Save",
+        "btn_create": "Create",
+        "initial_poll_hint": "💡 A brand-new subscription's first check sends the 10 most relevant articles from the last 5 years; every check after that only sends newly-updated articles.",
+
+        "preview_empty_state": "No articles found yet — try \"Poll now\" from the subscription list.",
+        "status_sent": "sent",
+        "status_pending": "pending",
+        "label_first_seen": "first seen",
+
+        "settings_title": "Settings",
+        "settings_gmail_section": "Sender account (Gmail)",
+        "settings_poll_note": "💡 Search timing is controlled entirely by each subscription's own frequency: an 'immediate' subscription is checked roughly every 15 minutes; daily/3-day/weekly subscriptions are only searched once, right when they are due — no wasted requests.",
+        "settings_gmail_address_label": "Gmail address",
+        "settings_gmail_password_label": "App Password",
+        "settings_gmail_password_hint": "Leave blank to keep the current password. See README \"Gmail Setup\" for how to generate one.",
+        "settings_ncbi_label": "NCBI API Key (optional)",
+        "settings_ncbi_hint": "Raises the PubMed rate limit. Free to request at ncbi.nlm.nih.gov/account/settings",
+        "btn_save_settings": "Save settings",
+        "settings_saved": "✅ Settings saved.",
+        "settings_test_email_section": "Send a test email",
+        "settings_test_email_label": "Recipient address",
+        "btn_send_test_email": "Send test email",
+        "test_email_success": "✅ Test email sent — check your inbox.",
+        "test_email_failure": "❌ Failed to send: ",
+        "settings_language_label": "Interface language",
+    },
+    "ja": {
+        "app_subtitle": "論文購読アラート",
+        "nav_subscriptions": "購読",
+        "nav_settings": "設定",
+
+        "banner_mailer_not_configured": "⚠️ Gmail送信アカウントが未設定のため、メールを送信できません。「設定」ページで設定してください。",
+        "banner_sjr_not_available": "⚠️ SJR分野ランキングデータが見つかりません。メールにはクォータイル情報が表示されません。詳細はREADMEを参照。",
+
+        "my_subscriptions": "マイ購読",
+        "new_subscription_btn": "+ 新規購読",
+        "empty_state": "まだ購読がありません。右上の「新規購読」から始めましょう。",
+        "badge_active": "稼働中",
+        "badge_paused": "一時停止",
+
+        "freq_immediate": "新着があれば即時送信",
+        "freq_daily": "毎日まとめて送信",
+        "freq_every_3_days": "3日ごとにまとめて送信",
+        "freq_weekly": "毎週まとめて送信",
+
+        "label_recipient": "宛先",
+        "label_keywords": "キーワード",
+        "label_journals": "雑誌",
+        "label_authors": "著者",
+        "label_last_sent": "前回送信",
+        "never": "なし",
+
+        "btn_view_articles": "文献を見る",
+        "btn_edit": "編集",
+        "btn_poll_now": "今すぐチェック",
+        "btn_pause": "一時停止",
+        "btn_resume": "再開",
+        "btn_delete": "削除",
+        "confirm_delete": "この購読を削除しますか？",
+
+        "edit_subscription_title": "購読を編集",
+        "new_subscription_title": "新規購読",
+        "back": "← 戻る",
+
+        "field_label": "購読名",
+        "field_keywords_label": "キーワード",
+        "field_keywords_hint": "1行に1つ。タイトル/抄録に一致。複数キーワードはOR条件。",
+        "field_journals_label": "雑誌（任意）",
+        "field_journals_hint": "任意。1行に1誌。",
+        "field_authors_label": "著者（任意）",
+        "field_authors_hint": "任意。1行に1名、例：\"Zhang Wei\"。",
+        "field_query_override_label": "上級者向け：PubMed検索式を直接指定（任意、指定すると上の3項目は無視されます）",
+        "field_query_override_hint": "上級者向け：PubMedの検索式を直接記述。指定すると上のキーワード/雑誌/著者は無視されます。",
+        "field_recipient_label": "宛先メールアドレス",
+        "field_frequency_label": "送信頻度",
+        "btn_save": "保存",
+        "btn_create": "作成",
+        "initial_poll_hint": "💡 新規購読の初回チェックでは過去5年間で最も関連性の高い10件を送信します。以降のチェックでは新着分のみ送信されます。",
+
+        "preview_empty_state": "まだ文献が見つかっていません。一覧の「今すぐチェック」を試してください。",
+        "status_sent": "送信済み",
+        "status_pending": "送信待ち",
+        "label_first_seen": "発見日時",
+
+        "settings_title": "設定",
+        "settings_gmail_section": "送信アカウント (Gmail)",
+        "settings_poll_note": "💡 検索のタイミングは各購読の「送信頻度」によって決まります：即時送信の購読は約15分ごとにチェックされ、毎日/3日ごと/毎週まとめての購読はその周期が来た瞬間に一度だけ検索されます。無駄なリクエストは発生しません。",
+        "settings_gmail_address_label": "Gmailアドレス",
+        "settings_gmail_password_label": "アプリパスワード",
+        "settings_gmail_password_hint": "空欄のままにすると既存のパスワードを維持します。生成方法はREADMEの「Gmail設定」を参照。",
+        "settings_ncbi_label": "NCBI APIキー（任意）",
+        "settings_ncbi_hint": "PubMedのリクエスト制限を緩和します。無料で申請可能：ncbi.nlm.nih.gov/account/settings",
+        "btn_save_settings": "設定を保存",
+        "settings_saved": "✅ 設定を保存しました。",
+        "settings_test_email_section": "テストメールを送信",
+        "settings_test_email_label": "宛先アドレス",
+        "btn_send_test_email": "テストメール送信",
+        "test_email_success": "✅ テストメールを送信しました。受信箱をご確認ください。",
+        "test_email_failure": "❌ 送信に失敗しました：",
+        "settings_language_label": "表示言語",
+    },
+}
+
+
+def get_translator(lang):
+    lang = lang if lang in SUPPORTED_LANGS else DEFAULT_LANG
+    table = TRANSLATIONS[lang]
+    default_table = TRANSLATIONS[DEFAULT_LANG]
+
+    def t(key):
+        return table.get(key, default_table.get(key, key))
+
+    return t

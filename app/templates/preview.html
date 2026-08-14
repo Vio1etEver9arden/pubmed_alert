@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}{{ sub.label }} - PubMed Alert{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <h1>{{ sub.label }}</h1>
+  <a class="btn secondary" href="/">{{ t("back") }}</a>
+</div>
+
+{% if not articles %}
+<div class="empty">{{ t("preview_empty_state") }}</div>
+{% endif %}
+
+<div class="card">
+{% for a in articles %}
+<div class="article">
+  <div class="meta">
+    {% if a.sent_at %}✅ {{ t("status_sent") }}{% else %}🕓 {{ t("status_pending") }}{% endif %}
+    &middot; {{ t("label_first_seen") }}: {{ a.first_seen_at.strftime("%Y-%m-%d %H:%M") }}
+    {% if a.sjr_quartile %}<span class="badge quartile">SJR {{ a.sjr_quartile }}</span>{% endif %}
+  </div>
+  <a href="{{ a.pubmed_url }}" target="_blank">{{ a.title }}</a>
+  <div class="meta">{{ a.authors }}</div>
+  <div class="meta"><b>{{ a.journal }}</b>{% if a.pub_date %} &middot; {{ a.pub_date }}{% endif %}</div>
+</div>
+{% endfor %}
+</div>
+
+{% endblock %}

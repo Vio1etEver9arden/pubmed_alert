@@ -1,0 +1,8 @@
+.env
+data/*.db
+data/*.sqlite3
+data/sjr_cache.csv
+data/app_secret.key
+__pycache__/
+*.pyc
+.venv/

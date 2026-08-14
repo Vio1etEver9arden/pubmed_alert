@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="{{ lang }}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}PubMed Alert{% endblock %}</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <a href="/" class="brand">📚 PubMed Alert</a>
+    <span class="subtitle">{{ t("app_subtitle") }}</span>
+    <nav class="top-nav">
+      <a href="/">{{ t("nav_subscriptions") }}</a>
+      <a href="/settings">{{ t("nav_settings") }}</a>
+    </nav>
+    <div class="lang-switch">
+      {% for code, name in langs %}
+        <a href="/lang/{{ code }}" class="{{ 'active' if code == lang else '' }}">{{ name }}</a>
+      {% endfor %}
+    </div>
+  </header>
+  <main class="container">
+    {% block content %}{% endblock %}
+  </main>
+</body>
+</html>

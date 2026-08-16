@@ -81,8 +81,8 @@ class SeenArticle(Base):
     doi = Column(String(200), nullable=True)
     abstract = Column(Text, nullable=True)
 
-    sjr_quartile = Column(String(10), nullable=True)   # e.g. "Q1"
-    sjr_rank = Column(Integer, nullable=True)           # SJR 排名（在该分类下）
+    jcr_quartile = Column(String(10), nullable=True)   # 官方 JCR 分区，例如 "Q1" official JCR quartile, e.g. "Q1"
+    jif = Column(Float, nullable=True)                  # 影响因子 (Journal Impact Factor)
 
     first_seen_at = Column(DateTime, default=dt.datetime.utcnow)
     sent_at = Column(DateTime, nullable=True)
@@ -133,6 +133,13 @@ def _migrate_add_missing_columns():
                 "WHERE id IN (SELECT DISTINCT subscription_id FROM seen_articles)"
             )
             conn.commit()
+
+        article_cols = [row[1] for row in conn.exec_driver_sql("PRAGMA table_info(seen_articles)")]
+        if "jcr_quartile" not in article_cols:
+            conn.exec_driver_sql("ALTER TABLE seen_articles ADD COLUMN jcr_quartile VARCHAR(10)")
+        if "jif" not in article_cols:
+            conn.exec_driver_sql("ALTER TABLE seen_articles ADD COLUMN jif FLOAT")
+        conn.commit()
 
 
 def init_db():

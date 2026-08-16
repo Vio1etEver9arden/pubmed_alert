@@ -1,8 +1,12 @@
 .env
 data/*.db
 data/*.sqlite3
-data/sjr_cache.csv
+data/jcr_cache.csv
 data/app_secret.key
+*.pdf
 __pycache__/
 *.pyc
 .venv/
+build/
+dist/
+*.spec

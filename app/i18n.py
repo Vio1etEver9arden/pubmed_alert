@@ -13,7 +13,7 @@ TRANSLATIONS = {
         "nav_settings": "设置",
 
         "banner_mailer_not_configured": "⚠️ 尚未配置 Gmail 发件账号，邮件无法发送。请前往「设置」页面填写。",
-        "banner_sjr_not_available": "⚠️ 未找到 SJR 期刊分区数据文件，邮件中将不显示分区信息。详见 README。",
+        "banner_jcr_not_available": "⚠️ 未找到 JCR 期刊数据文件，邮件中将不显示影响因子/分区信息。详见 README。",
 
         "my_subscriptions": "我的订阅",
         "new_subscription_btn": "+ 新建订阅",
@@ -88,7 +88,7 @@ TRANSLATIONS = {
         "nav_settings": "Settings",
 
         "banner_mailer_not_configured": "⚠️ Gmail sender account not configured yet — emails can't be sent. Set it up on the Settings page.",
-        "banner_sjr_not_available": "⚠️ SJR journal ranking data file not found — quartile info will be omitted from emails. See README.",
+        "banner_jcr_not_available": "⚠️ JCR journal data file not found — impact factor/quartile info will be omitted from emails. See README.",
 
         "my_subscriptions": "My Subscriptions",
         "new_subscription_btn": "+ New Subscription",
@@ -163,7 +163,7 @@ TRANSLATIONS = {
         "nav_settings": "設定",
 
         "banner_mailer_not_configured": "⚠️ Gmail送信アカウントが未設定のため、メールを送信できません。「設定」ページで設定してください。",
-        "banner_sjr_not_available": "⚠️ SJR分野ランキングデータが見つかりません。メールにはクォータイル情報が表示されません。詳細はREADMEを参照。",
+        "banner_jcr_not_available": "⚠️ JCRデータファイルが見つかりません。メールにはインパクトファクター/クォータイル情報が表示されません。詳細はREADMEを参照。",
 
         "my_subscriptions": "マイ購読",
         "new_subscription_btn": "+ 新規購読",

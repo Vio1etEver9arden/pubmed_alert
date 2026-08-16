@@ -5,15 +5,17 @@ from fastapi.responses import RedirectResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
+from app import __version__
 from app.db import init_db, get_session, Subscription, SeenArticle, FREQUENCY_CHOICES
 from app.scheduler import start_scheduler, poll_subscription, dispatch_subscription
 from app.settings import get_settings
 from app.i18n import get_translator, SUPPORTED_LANGS, LANG_NAMES, DEFAULT_LANG
+from app.config import TEMPLATES_DIR, STATIC_DIR
 from app import mailer, journal_rank
 
 app = FastAPI(title="PubMed Alert")
-templates = Jinja2Templates(directory="app/templates")
-app.mount("/static", StaticFiles(directory="app/static"), name="static")
+templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
+app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 
 LANG_COOKIE = "lang"
 
@@ -48,6 +50,7 @@ def render(request: Request, name: str, context: dict, status_code: int = 200):
         "lang": lang,
         "t": get_translator(lang),
         "langs": [(code, LANG_NAMES[code]) for code in SUPPORTED_LANGS],
+        "app_version": __version__,
     }
     return templates.TemplateResponse(request, name, ctx, status_code=status_code)
 
@@ -68,7 +71,7 @@ def index(request: Request, db=Depends(get_db)):
     return render(request, "index.html", {
         "subscriptions": subs,
         "mailer_configured": mailer.is_configured(settings),
-        "sjr_available": journal_rank.is_available(),
+        "jcr_available": journal_rank.is_available(),
     })
 
 

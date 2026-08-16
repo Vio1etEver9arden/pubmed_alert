@@ -22,8 +22,11 @@
       </div>
       <div style="font-size:13px; color:#6e6e73; margin-top:2px;">
         <b>{{ a.journal }}</b>{% if a.pub_date %} &middot; {{ a.pub_date }}{% endif %}
-        {% if a.sjr_quartile %}
-          &middot; <span style="background:#eef6ff; color:#0a5cd8; padding:1px 6px; border-radius:4px;">SJR {{ a.sjr_quartile }}</span>
+        {% if a.jcr_quartile %}
+          &middot; <span style="background:#eef6ff; color:#0a5cd8; padding:1px 6px; border-radius:4px;">JCR {{ a.jcr_quartile }}</span>
+        {% endif %}
+        {% if a.jif %}
+          &middot; <span style="background:#eef6ff; color:#0a5cd8; padding:1px 6px; border-radius:4px;">IF {{ "%.1f"|format(a.jif) }}</span>
         {% endif %}
       </div>
 
@@ -47,8 +50,8 @@
     {% endfor %}
 
     <p style="margin-top:24px; font-size:11px; color:#aeaeb2; border-top:1px solid #e5e5ea; padding-top:12px;">
-      期刊分区数据来自 Scimago (SJR)，非官方 JCR / 中科院分区数据，仅供参考。<br>
-      Journal quartile data is from Scimago (SJR), an approximation — not the official JCR / CAS partition data.<br>
+      影响因子 / 分区数据来自 Journal Citation Reports，仅供参考。<br>
+      Impact factor / quartile data is from Journal Citation Reports, for reference only.<br>
       由 PubMed Alert 自动发送 &middot; Sent automatically by PubMed Alert
     </p>
   </div>

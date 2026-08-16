@@ -9,10 +9,10 @@ from email.mime.text import MIMEText
 
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
-from app.config import MAIL_FROM_NAME, BASE_DIR
+from app.config import MAIL_FROM_NAME, TEMPLATES_DIR
 
 _env = Environment(
-    loader=FileSystemLoader(str(BASE_DIR / "app" / "templates")),
+    loader=FileSystemLoader(str(TEMPLATES_DIR)),
     autoescape=select_autoescape(["html"]),
 )
 

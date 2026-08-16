@@ -1,11 +1,26 @@
 import os
+import sys
 from pathlib import Path
 from dotenv import load_dotenv
 from cryptography.fernet import Fernet
 
-BASE_DIR = Path(__file__).resolve().parent.parent
+# 打包成单文件 exe 后，sys.executable 指向 exe 本身（数据要写在它旁边才能持久保存），
+# 而模板/静态文件等只读资源被解压到 sys._MEIPASS 指向的临时目录里。
+# When frozen into a onefile exe, sys.executable points at the exe itself (data must live next
+# to it to persist across runs), while read-only bundled resources (templates/static) are
+# unpacked into the temp dir pointed to by sys._MEIPASS.
+if getattr(sys, "frozen", False):
+    BASE_DIR = Path(sys.executable).resolve().parent
+    RESOURCE_DIR = Path(getattr(sys, "_MEIPASS", BASE_DIR))
+else:
+    BASE_DIR = Path(__file__).resolve().parent.parent
+    RESOURCE_DIR = BASE_DIR
+
 DATA_DIR = BASE_DIR / "data"
 DATA_DIR.mkdir(exist_ok=True)
+
+TEMPLATES_DIR = RESOURCE_DIR / "app" / "templates"
+STATIC_DIR = RESOURCE_DIR / "app" / "static"
 
 load_dotenv(BASE_DIR / ".env")
 
@@ -37,8 +52,6 @@ LEGACY_POLL_INTERVAL_HOURS = os.getenv("POLL_INTERVAL_HOURS", "")
 DB_PATH = DATA_DIR / "subscriptions.db"
 DATABASE_URL = f"sqlite:///{DB_PATH}"
 
-SJR_CSV_PATH = DATA_DIR / "sjr_cache.csv"
-# Scimago 每年发布一次全量期刊数据，下载地址格式固定 / Scimago publishes a yearly full dump at this stable URL pattern
-SJR_DOWNLOAD_URL = "https://www.scimagojr.com/journalrank.php?out=xls"
+JCR_CSV_PATH = DATA_DIR / "jcr_cache.csv"
 
 MAIL_FROM_NAME = "PubMed Alert"

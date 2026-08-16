@@ -17,7 +17,8 @@
   <div class="meta">
     {% if a.sent_at %}✅ {{ t("status_sent") }}{% else %}🕓 {{ t("status_pending") }}{% endif %}
     &middot; {{ t("label_first_seen") }}: {{ a.first_seen_at.strftime("%Y-%m-%d %H:%M") }}
-    {% if a.sjr_quartile %}<span class="badge quartile">SJR {{ a.sjr_quartile }}</span>{% endif %}
+    {% if a.jcr_quartile %}<span class="badge quartile">JCR {{ a.jcr_quartile }}</span>{% endif %}
+    {% if a.jif %}<span class="badge quartile">IF {{ "%.1f"|format(a.jif) }}</span>{% endif %}
   </div>
   <a href="{{ a.pubmed_url }}" target="_blank">{{ a.title }}</a>
   <div class="meta">{{ a.authors }}</div>

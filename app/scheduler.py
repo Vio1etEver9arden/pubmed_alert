@@ -97,7 +97,11 @@ def poll_subscription(session, sub: Subscription, settings):
         if art["pmid"] in existing_pmids:
             continue
 
-        rank = journal_rank.lookup(journal_title=art["journal"], issn=art.get("issn"))
+        rank = journal_rank.lookup(
+            journal_title=art["journal"],
+            issn=art.get("issn"),
+            issn_linking=art.get("issn_linking"),
+        )
 
         row = SeenArticle(
             subscription_id=sub.id,
@@ -108,8 +112,8 @@ def poll_subscription(session, sub: Subscription, settings):
             pub_date=art["pub_date"],
             doi=art["doi"],
             abstract=art["abstract"],
-            sjr_quartile=rank["quartile"] if rank else None,
-            sjr_rank=rank["rank"] if rank else None,
+            jcr_quartile=rank["quartile"] if rank else None,
+            jif=rank["jif"] if rank else None,
         )
         session.add(row)
         new_count += 1

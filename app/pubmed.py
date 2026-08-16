@@ -118,6 +118,10 @@ def fetch_details(pmids, api_key=None):
 
             journal_title = _text(article_el.find("./Journal/Title"))
             issn = _text(article_el.find("./Journal/ISSN"))
+            # NLM 给每本期刊指定的稳定 ISSN，不随印刷版/电子版变化，同一期刊所有文章都一样。
+            # A stable per-journal ISSN assigned by NLM, independent of print vs. electronic —
+            # the same value across every article of that journal.
+            issn_linking = _text(medline.find("./MedlineJournalInfo/ISSNLinking"))
 
             authors = []
             for a in article_el.findall("./AuthorList/Author"):
@@ -144,6 +148,7 @@ def fetch_details(pmids, api_key=None):
                 "authors": ", ".join(authors),
                 "journal": journal_title,
                 "issn": issn,
+                "issn_linking": issn_linking,
                 "pub_date": pub_date,
                 "doi": doi,
                 "abstract": abstract,

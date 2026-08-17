@@ -89,17 +89,6 @@ STARTTLS（不勾选）。具体信息请查阅该邮箱服务商官方的 SMTP 
 PubMed 本身不提供影响因子或分区数据。这个项目自带一份预先解析好的官方 **Journal Citation
 Reports (JCR)** 数据快照（`data/jcr_cache.csv`），会自动使用，不需要额外配置。
 
-如果想更新成更新一年的数据（需要你自己有机构的 JCR / Web of Science 访问权限）：
-
-1. 导出当年的 "Journal Impact Factor" 报告为 PDF。
-2. 把 PDF 放到本项目的 `data/` 文件夹下。
-3. 运行：
-   ```bash
-   pip install pdfplumber
-   python scripts/parse_jcr_pdf.py "data/JCR Journal Impact Factor <年份>.pdf"
-   ```
-4. 重启程序即可生效。
-
 ---
 
 ## 使用说明

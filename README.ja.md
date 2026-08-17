@@ -107,17 +107,6 @@ PubMed 自体にはインパクトファクターやクォータイルのデー�
 公式の **Journal Citation Reports (JCR)** データを解析済みのスナップショット
 （`data/jcr_cache.csv`）が同梱されており、自動的に使用されます。追加設定は不要です。
 
-より新しい年のデータに更新したい場合（所属機関の JCR / Web of Science アクセス権限が必要です）：
-
-1. その年の "Journal Impact Factor" レポートを PDF としてエクスポートします。
-2. その PDF をこのプロジェクトの `data/` フォルダに置きます。
-3. 次を実行します：
-   ```bash
-   pip install pdfplumber
-   python scripts/parse_jcr_pdf.py "data/JCR Journal Impact Factor <年>.pdf"
-   ```
-4. プログラムを再起動すると反映されます。
-
 ---
 
 ## 使い方

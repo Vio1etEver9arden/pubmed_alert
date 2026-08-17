@@ -103,17 +103,6 @@ PubMed itself has no impact-factor or quartile data. This project ships with a p
 snapshot of the official **Journal Citation Reports (JCR)** data (`data/jcr_cache.csv`), used
 automatically — nothing to set up.
 
-To refresh it with a newer year (requires your own institutional JCR / Web of Science access):
-
-1. Export that year's "Journal Impact Factor" report as a PDF.
-2. Place it in this project's `data/` folder.
-3. Run:
-   ```bash
-   pip install pdfplumber
-   python scripts/parse_jcr_pdf.py "data/JCR Journal Impact Factor <year>.pdf"
-   ```
-4. Restart the app to pick up the refreshed data.
-
 ---
 
 ## How to Use

@@ -2,8 +2,7 @@
 把 Journal Citation Reports 导出的 PDF 解析成 data/jcr_cache.csv，供 app/journal_rank.py 读取。
 
 这个脚本不是应用运行时需要的依赖，只在你每年更新一次 JCR 数据时手动运行。需要你自己有 JCR
-的订阅访问权限（一般通过所在机构的图书馆），导出年度报告 PDF 后本地解析，不涉及抓取或分发官方
-付费数据。
+的订阅访问权限（一般通过所在机构的图书馆），导出年度报告 PDF 后本地解析。
 
 用法 Usage:
     pip install pdfplumber
@@ -14,8 +13,7 @@ reads at runtime.
 
 This script isn't a runtime dependency of the app itself — run it manually whenever you refresh
 your JCR data (about once a year). It requires your own JCR subscription access (typically via
-your institution's library); export the annual report as a PDF and parse it locally. No scraping
-or redistribution of the paywalled data is involved.
+your institution's library); export the annual report as a PDF and parse it locally.
 """
 import csv
 import re

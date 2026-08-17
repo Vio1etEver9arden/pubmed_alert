@@ -18,20 +18,14 @@
   Contributors 页面多出一个无关联的头像，用户明确要求以后都不要加。
 - `CHANGELOG.md` 里每条改动是**英文在前、中文紧跟其后**（两行一组）；`README.md` /
   `README.zh.md` / `README.ja.md` 是三个独立单语文件，不需要在文件内部搞双语。
+- **`data/jcr_cache.csv`（Clarivate JCR 影响因子/分区数据）故意提交进 git、公开在这个仓库里**。
+  这份数据本来是付费数据，正常情况下不该公开分发；用户在被明确告知"这是公开仓库，一旦提交无法
+  彻底收回"之后，仍然确认要这么做，风险自己承担。**不要**因为这是付费数据就自作主张把它加回
+  `.gitignore` 或从仓库里删掉——除非用户明确改变主意。
 
 ## 未完成 / 待跟进的事项
 
-1. **JCR 影响因子+分区 CSV 找不到**：用户记得自己整理过一份"2025 IF + JCR 分区"的 CSV，以为
-   前一天晚上提交过，但翻遍 git 历史（4次提交）、reflog、stash、悬空对象，以及本地 `data/`
-   目录和 Desktop/Downloads/Documents，都没找到——唯一提交过的 CSV 是 `data/sjr_cache.csv`
-   （免费的 Scimago SJR 数据，列名是 `SJR`/`SJR Best Quartile`，跟 `app/journal_rank.py` 实际
-   读取的 `data/jcr_cache.csv`（列名 `name/eissn/quartile/jif2026`）完全不是一回事）。最可能
-   的原因：`.gitignore` 里写死排除了 `data/jcr_cache.csv` 这个文件名，就算本地做过也不会被
-   git 提交。用户说要回家换电脑上找找看。**如果用户带着新版本的 CSV 回来**：核对一下它的列名
-   是否匹配 `journal_rank.py` 期望的格式（`name, eissn, quartile, jif2026`），不匹配的话可能
-   需要写个小转换脚本，而不是直接假设格式一样。
-
-2. **部署到服务器/云端，还没定下来**：用户想让程序一直在后台跑，不用手动开着软件才能收到新文章
+1. **部署到服务器/云端，还没定下来**：用户想让程序一直在后台跑，不用手动开着软件才能收到新文章
    提醒。讨论过 Oracle Cloud 永久免费（够用但注册/容量偶尔麻烦）、Google Cloud Always Free
    （e2-micro 也是永久免费，但要绑卡，稍微超出免费额度规则就会真的扣费，用户对这点有顾虑，
    查证过确实如此）、自建服务器（用闲置电脑/树莓派，零风险零月费，但需要用户自己有设备）。

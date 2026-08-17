@@ -97,25 +97,22 @@ SMTP setup documentation for the exact values.
 
 ---
 
-## Impact Factor / JCR Quartile (optional)
+## Impact Factor / JCR Quartile
 
-PubMed itself has no impact-factor or quartile data. The official **Journal Citation Reports
-(JCR)** is a paid Clarivate product, normally accessed via an institutional subscription. This
-project never scrapes or bypasses that paywall — you need your own access.
+PubMed itself has no impact-factor or quartile data. This project ships with a pre-parsed
+snapshot of the official **Journal Citation Reports (JCR)** data (`data/jcr_cache.csv`), used
+automatically — nothing to set up.
 
-1. Export that year's "Journal Impact Factor" report as a PDF from your institution's Web of
-   Science / JCR access.
+To refresh it with a newer year (requires your own institutional JCR / Web of Science access):
+
+1. Export that year's "Journal Impact Factor" report as a PDF.
 2. Place it in this project's `data/` folder.
 3. Run:
    ```bash
    pip install pdfplumber
-   python scripts/parse_jcr_pdf.py "data/JCR Journal Impact Factor 2026.pdf"
+   python scripts/parse_jcr_pdf.py "data/JCR Journal Impact Factor <year>.pdf"
    ```
-4. Restart the app — the yellow banner on the homepage disappears once it picks up the data.
-
-Skipping this doesn't break anything else — emails just omit the impact-factor/quartile badge.
-Re-export once a year when JCR updates. This is per-person: everyone generates their own cache
-file from their own subscription access; nothing is shared or committed to git.
+4. Restart the app to pick up the refreshed data.
 
 ---
 

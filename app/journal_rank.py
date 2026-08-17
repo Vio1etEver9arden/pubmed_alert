@@ -2,15 +2,13 @@
 按期刊查影响因子 (JIF) 和官方 JCR 分区。
 
 数据来自 Clarivate Journal Citation Reports 的 PDF 报告，需要你自己有订阅权限，手动导出
-PDF 后用 scripts/parse_jcr_pdf.py 解析成 data/jcr_cache.csv（每年更新一次）。这份 CSV 本身
-不会分发（已在 .gitignore 里排除），每个使用者需要用自己的订阅生成一份。
+PDF 后用 scripts/parse_jcr_pdf.py 解析成 data/jcr_cache.csv（每年更新一次）。
 
 Looks up Journal Impact Factor (JIF) and the official JCR quartile for a journal.
 
 Data comes from a Clarivate Journal Citation Reports PDF export — you need your own JCR
 subscription access. Export the PDF yourself and run scripts/parse_jcr_pdf.py to turn it into
-data/jcr_cache.csv (refresh once a year). This CSV is never distributed (excluded via
-.gitignore) — each user generates their own from their own subscription.
+data/jcr_cache.csv (refresh once a year).
 """
 import csv
 import difflib

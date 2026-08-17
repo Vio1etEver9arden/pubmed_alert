@@ -84,23 +84,21 @@ STARTTLS（不勾选）。具体信息请查阅该邮箱服务商官方的 SMTP 
 
 ---
 
-## 影响因子 / JCR 分区数据（可选）
+## 影响因子 / JCR 分区数据
 
-PubMed 本身不提供影响因子或分区数据。官方 **Journal Citation Reports (JCR)** 是 Clarivate 的
-付费数据源，一般通过所在机构的订阅才能访问。这个项目不做任何抓取或绕过付费墙的操作——你需要
-自己有访问权限。
+PubMed 本身不提供影响因子或分区数据。这个项目自带一份预先解析好的官方 **Journal Citation
+Reports (JCR)** 数据快照（`data/jcr_cache.csv`），会自动使用，不需要额外配置。
 
-1. 通过你机构的 Web of Science / JCR 访问权限，导出当年的 "Journal Impact Factor" 报告为 PDF。
+如果想更新成更新一年的数据（需要你自己有机构的 JCR / Web of Science 访问权限）：
+
+1. 导出当年的 "Journal Impact Factor" 报告为 PDF。
 2. 把 PDF 放到本项目的 `data/` 文件夹下。
 3. 运行：
    ```bash
    pip install pdfplumber
-   python scripts/parse_jcr_pdf.py "data/JCR Journal Impact Factor 2026.pdf"
+   python scripts/parse_jcr_pdf.py "data/JCR Journal Impact Factor <年份>.pdf"
    ```
-4. 重启程序即可生效（首页顶部的黄色提示会消失）。
-
-不做这一步也完全不影响其他功能，只是邮件里不会显示影响因子/分区标签。建议每年 JCR 更新后重新
-导出一次。这是每人各自的事——每个人用自己的订阅权限生成自己的缓存文件，不会被分享或提交到 git。
+4. 重启程序即可生效。
 
 ---
 

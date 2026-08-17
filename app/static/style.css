@@ -163,6 +163,8 @@ form.stack label {
 }
 form.stack input[type=text],
 form.stack input[type=email],
+form.stack input[type=password],
+form.stack input[type=number],
 form.stack select,
 form.stack textarea {
   width: 100%;
@@ -173,6 +175,8 @@ form.stack textarea {
   font-family: inherit;
 }
 form.stack textarea { min-height: 70px; resize: vertical; }
+.checkbox-label { display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 13px; margin: 14px 0 6px; }
+.checkbox-label input[type=checkbox] { width: auto; }
 .hint { font-size: 12px; color: var(--muted); margin-top: 4px; }
 
 .empty {

@@ -101,19 +101,22 @@ class AppSettings(Base):
     __tablename__ = "app_settings"
 
     id = Column(Integer, primary_key=True)
-    gmail_address = Column(String(255), default="")
-    gmail_app_password_enc = Column(String(500), default="")
+    smtp_host = Column(String(255), default="smtp.gmail.com")
+    smtp_port = Column(Integer, default=587)
+    smtp_use_ssl = Column(Boolean, default=False)  # True=隐式SSL(常见465端口) False=STARTTLS(常见587端口)
+    sender_email = Column(String(255), default="")
+    sender_password_enc = Column(String(500), default="")
     ncbi_api_key = Column(String(200), default="")
     poll_interval_hours = Column(Float, default=6.0)
     ui_language = Column(String(10), default="zh")  # 默认界面语言 default UI language
 
     @property
-    def gmail_app_password(self):
-        return crypto.decrypt(self.gmail_app_password_enc)
+    def sender_password(self):
+        return crypto.decrypt(self.sender_password_enc)
 
-    @gmail_app_password.setter
-    def gmail_app_password(self, value):
-        self.gmail_app_password_enc = crypto.encrypt(value)
+    @sender_password.setter
+    def sender_password(self, value):
+        self.sender_password_enc = crypto.encrypt(value)
 
 
 def _migrate_add_missing_columns():
@@ -140,6 +143,26 @@ def _migrate_add_missing_columns():
         if "jif" not in article_cols:
             conn.exec_driver_sql("ALTER TABLE seen_articles ADD COLUMN jif FLOAT")
         conn.commit()
+
+        # 旧版本只支持 Gmail，字段叫 gmail_address / gmail_app_password_enc；这里迁移到通用的
+        # SMTP 字段（sender_email / sender_password_enc / smtp_host / smtp_port / smtp_use_ssl）。
+        # Older versions only supported Gmail, with columns named gmail_address /
+        # gmail_app_password_enc; migrate them to the generic SMTP columns here.
+        settings_cols = [row[1] for row in conn.exec_driver_sql("PRAGMA table_info(app_settings)")]
+        if "gmail_address" in settings_cols and "sender_email" not in settings_cols:
+            conn.exec_driver_sql("ALTER TABLE app_settings ADD COLUMN sender_email VARCHAR(255) DEFAULT ''")
+            conn.exec_driver_sql("ALTER TABLE app_settings ADD COLUMN sender_password_enc VARCHAR(500) DEFAULT ''")
+            conn.exec_driver_sql("ALTER TABLE app_settings ADD COLUMN smtp_host VARCHAR(255) DEFAULT 'smtp.gmail.com'")
+            conn.exec_driver_sql("ALTER TABLE app_settings ADD COLUMN smtp_port INTEGER DEFAULT 587")
+            conn.exec_driver_sql("ALTER TABLE app_settings ADD COLUMN smtp_use_ssl BOOLEAN DEFAULT 0")
+            conn.exec_driver_sql(
+                "UPDATE app_settings SET sender_email = gmail_address, "
+                "sender_password_enc = gmail_app_password_enc, "
+                "smtp_host = 'smtp.gmail.com', smtp_port = 587, smtp_use_ssl = 0"
+            )
+            conn.exec_driver_sql("ALTER TABLE app_settings DROP COLUMN gmail_address")
+            conn.exec_driver_sql("ALTER TABLE app_settings DROP COLUMN gmail_app_password_enc")
+            conn.commit()
 
 
 def init_db():

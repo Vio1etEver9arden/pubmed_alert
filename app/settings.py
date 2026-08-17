@@ -18,12 +18,15 @@ def get_settings(session) -> AppSettings:
 
     row = AppSettings(
         id=SETTINGS_ID,
-        gmail_address=LEGACY_GMAIL_ADDRESS,
+        sender_email=LEGACY_GMAIL_ADDRESS,
+        smtp_host="smtp.gmail.com",
+        smtp_port=587,
+        smtp_use_ssl=False,
         ncbi_api_key=LEGACY_NCBI_API_KEY,
         poll_interval_hours=float(LEGACY_POLL_INTERVAL_HOURS) if LEGACY_POLL_INTERVAL_HOURS else 6.0,
     )
     if LEGACY_GMAIL_APP_PASSWORD:
-        row.gmail_app_password = LEGACY_GMAIL_APP_PASSWORD
+        row.sender_password = LEGACY_GMAIL_APP_PASSWORD
     session.add(row)
     session.commit()
     session.refresh(row)

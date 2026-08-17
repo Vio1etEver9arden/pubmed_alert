@@ -14,13 +14,13 @@ instantly or as a digest — annotated with the official JCR impact factor and q
 ## Features
 
 - 🔍 Search new PubMed articles by keyword / journal / author (or write a raw advanced query)
-- 📧 Sends notification emails via your own Gmail account
+- 📧 Sends notification emails via your own email account (Gmail / QQ Mail / 163 Mail / Outlook, or any other SMTP mailbox)
 - ⏱ Each subscription has its own frequency: instant / daily / every 3 days / weekly digest
 - 🏷 Emails are annotated with the official JCR impact factor and quartile (Q1–Q4)
 - 🌐 A simple web UI to manage subscriptions (create/edit/delete, poll now, view articles)
 - 🌏 Interface available in English / Chinese / Japanese — switch anytime, top-right corner
-- ⚙️ Gmail and the NCBI API key are configured on the web Settings page (password encrypted at
-  rest) — no config files to edit by hand
+- ⚙️ The sender account and the NCBI API key are configured on the web Settings page (password
+  encrypted at rest) — no config files to edit by hand
 
 ---
 
@@ -43,14 +43,21 @@ If someone shared a `PubMedAlert.exe` (Windows) or `PubMedAlert` (Mac) with you,
 double-click it — your browser opens automatically. See "Sharing with non-technical users"
 below if you're the one building and sharing it.
 
-### Configure Gmail sending
+### Configure the sender account
 
-Open the app, click **Settings** in the top nav, fill in your Gmail address and App Password
-(see below), then save. Use the "Send test email" button to verify it works.
+Open the app, click **Settings** in the top nav, pick your provider from the **Email provider**
+dropdown (Gmail / QQ Mail / 163 Mail / Outlook, or "Custom" to fill in an SMTP server by hand),
+fill in your address and password/auth code (see below), then save. Use the "Send test email"
+button to verify it works.
 
 ---
 
-## Gmail Setup
+## Email Setup
+
+⚠️ The password is stored encrypted in the local database. Never share `data/subscriptions.db`
+or `data/app_secret.key`, and never paste the password into chat logs or screenshots.
+
+### Gmail
 
 Gmail won't let a program send mail using your regular login password — you need a dedicated
 **App Password**.
@@ -59,11 +66,34 @@ Gmail won't let a program send mail using your regular login password — you ne
    **2-Step Verification** is turned on (required for App Passwords).
 2. Open [myaccount.google.com/apppasswords](https://myaccount.google.com/apppasswords) and
    create a new App Password (name it anything, e.g. "PubMed Alert").
-3. Copy the generated 16-character password into the Settings page, along with your Gmail
-   address, then save.
+3. Copy the generated 16-character password into the "Password / Auth code" field on the
+   Settings page, along with your Gmail address, then save.
 
-⚠️ The password is stored encrypted in the local database. Never share `data/subscriptions.db`
-or `data/app_secret.key`, and never paste the password into chat logs or screenshots.
+### QQ Mail / 163 Mail
+
+Neither accepts your regular login password for sending mail — you need to enable SMTP access
+in the webmail settings and generate a **client authorization code**, then use that code (not
+your login password) in the "Password / Auth code" field.
+
+- QQ Mail: log into webmail → Settings → Account → enable "POP3/SMTP service" → verify via SMS
+  to generate the authorization code.
+- 163 Mail: log into webmail → Settings → POP3/SMTP/IMAP → enable the service → generate a
+  client authorization password.
+
+Once you pick the matching provider on the Settings page, the SMTP host and port are filled in
+automatically — you only need to enter the email address and that authorization code.
+
+### Outlook / Microsoft 365
+
+Your normal Outlook login password works (if the account has two-factor auth enabled, generate
+an app password instead at [account.microsoft.com/security](https://account.microsoft.com/security)).
+
+### Other providers
+
+Pick "Custom" from the **Email provider** dropdown on the Settings page, then fill in that
+provider's SMTP host and port by hand, checking "Use SSL" or not based on its docs — port 465
+usually needs SSL, port 587 usually needs STARTTLS (leave unchecked). Check that provider's own
+SMTP setup documentation for the exact values.
 
 ---
 
@@ -107,6 +137,13 @@ A brand-new subscription's first check sends the **10 most relevant** articles f
 - **daily / every_3_days / weekly** — batches newly-found articles into one digest email when
   due; if nothing new was found, no email is sent.
 
+**Closing the browser tab ≠ quitting the app**: it needs to keep running in the background to
+check and send on your configured schedule. Closing the browser tab alone doesn't stop it —
+that's expected, nothing to worry about. To actually stop it: for the packaged app, `Cmd+Q` or
+right-click its Dock icon → Quit; for `python run.py`, go back to that terminal and press
+`Ctrl+C`. Either way, reopening it later is always safe — if it's already running in the
+background, it just brings the browser back to it instead of erroring or starting a second copy.
+
 ---
 
 ## Sharing with Non-Technical Users
@@ -114,7 +151,7 @@ A brand-new subscription's first check sends the **10 most relevant** articles f
 If someone doesn't have (or doesn't want) Python, package the app into a standalone executable
 with the scripts in `packaging/`. They just double-click the file and a browser tab opens
 automatically — nothing else to install. **Each person runs their own independent copy**, with
-its own database and Gmail config.
+its own database and sender account config.
 
 Building must happen on the target OS (PyInstaller can't cross-compile):
 
@@ -124,15 +161,22 @@ powershell -ExecutionPolicy Bypass -File packaging\build_windows.ps1
 ```
 
 ```bash
-# On a Mac — produces dist/mac/PubMedAlert
+# On a Mac — produces dist/mac/PubMedAlert.app and dist/mac/PubMedAlert.zip
 chmod +x packaging/build_mac.sh
 ./packaging/build_mac.sh
 ```
 
-Send just that one file. Recipients should put it in a new, empty folder (not Downloads or a
-zip) before double-clicking — a `data/` folder appears next to it for the database. **macOS**:
-Gatekeeper blocks unsigned programs, so the first run must be right-click → Open in Finder, not
-a plain double-click.
+**Windows**: send just the `PubMedAlert.exe` file. Recipients should put it in a new, empty
+folder (not Downloads or a zip) before double-clicking — a `data/` folder appears next to it for
+the database.
 
-Each recipient configures their own Gmail App Password and, optionally, their own JCR data —
+**Mac**: send the `PubMedAlert.zip` file (not the unzipped `.app` — zipping keeps its internal
+structure intact). Recipients: unzip → right-click `PubMedAlert.app` → "Open" → confirm "Open"
+again in the security prompt. After that it's a normal Mac app — plain double-clicking works,
+**no terminal window appears**, and the browser opens automatically. The one-time right-click is
+unavoidable without a paid Apple Developer signature ($99/year); the build script does apply a
+local ad-hoc signature, which at least avoids the more confusing "app is damaged" error that
+unsigned apps otherwise hit on Apple Silicon.
+
+Each recipient configures their own sender account password/auth code and, optionally, their own JCR data —
 see the sections above.

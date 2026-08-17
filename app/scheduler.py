@@ -142,7 +142,7 @@ def dispatch_subscription(session, sub: Subscription, settings):
         return  # 没有新文献，不发送空邮件 no new articles, skip sending an empty email
 
     if not mailer.is_configured(settings):
-        logger.warning("Gmail 未配置，跳过发送 (Gmail not configured, skipping send) for subscription %s", sub.id)
+        logger.warning("发件邮箱未配置，跳过发送 (sender account not configured, skipping send) for subscription %s", sub.id)
         return
 
     try:

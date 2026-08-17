@@ -198,15 +198,21 @@ def settings_page(request: Request, db=Depends(get_db)):
 
 @app.post("/settings")
 def save_settings(
-    gmail_address: str = Form(""),
-    gmail_app_password: str = Form(""),
+    smtp_host: str = Form(""),
+    smtp_port: int = Form(587),
+    smtp_use_ssl: str = Form(""),
+    sender_email: str = Form(""),
+    sender_password: str = Form(""),
     ncbi_api_key: str = Form(""),
     db=Depends(get_db),
 ):
     settings = get_settings(db)
-    settings.gmail_address = gmail_address.strip()
-    if gmail_app_password.strip():
-        settings.gmail_app_password = gmail_app_password.strip()
+    settings.smtp_host = smtp_host.strip()
+    settings.smtp_port = smtp_port
+    settings.smtp_use_ssl = bool(smtp_use_ssl)
+    settings.sender_email = sender_email.strip()
+    if sender_password.strip():
+        settings.sender_password = sender_password.strip()
     settings.ncbi_api_key = ncbi_api_key.strip()
     db.commit()
     return RedirectResponse("/settings?saved=1", status_code=303)

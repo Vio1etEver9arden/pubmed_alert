@@ -18,14 +18,37 @@
 <div class="banner ok">{{ t("settings_poll_note") }}</div>
 
 <div class="card">
-  <h2>{{ t("settings_gmail_section") }}</h2>
-  <form class="stack" method="post" action="/settings">
-    <label>{{ t("settings_gmail_address_label") }}</label>
-    <input type="text" name="gmail_address" placeholder="you@gmail.com" value="{{ settings.gmail_address }}">
+  <h2>{{ t("settings_sender_section") }}</h2>
+  <form class="stack" method="post" action="/settings" id="mailer-form">
+    <label>{{ t("settings_provider_label") }}</label>
+    <select id="provider-select">
+      <option value="gmail">Gmail</option>
+      <option value="qq">QQ{{ t("mail_suffix") }}</option>
+      <option value="163">163{{ t("mail_suffix") }}</option>
+      <option value="outlook">Outlook / Microsoft 365</option>
+      <option value="custom">{{ t("settings_provider_custom") }}</option>
+    </select>
 
-    <label>{{ t("settings_gmail_password_label") }}</label>
-    <input type="password" name="gmail_app_password" placeholder="{{ '••••••••••••••••' if settings.gmail_app_password else 'xxxx xxxx xxxx xxxx' }}">
-    <div class="hint">{{ t("settings_gmail_password_hint") }}</div>
+    <label>{{ t("settings_sender_email_label") }}</label>
+    <input type="text" name="sender_email" placeholder="you@example.com" value="{{ settings.sender_email }}">
+
+    <label>{{ t("settings_sender_password_label") }}</label>
+    <input type="password" name="sender_password" placeholder="{{ '••••••••••••••••' if settings.sender_password else 'xxxx xxxx xxxx xxxx' }}">
+    <div class="hint">{{ t("settings_sender_password_hint") }}</div>
+
+    <div id="custom-smtp-fields">
+      <label>{{ t("settings_smtp_host_label") }}</label>
+      <input type="text" name="smtp_host" id="smtp_host" placeholder="smtp.example.com" value="{{ settings.smtp_host }}">
+
+      <label>{{ t("settings_smtp_port_label") }}</label>
+      <input type="number" name="smtp_port" id="smtp_port" value="{{ settings.smtp_port }}">
+
+      <label class="checkbox-label">
+        <input type="checkbox" name="smtp_use_ssl" id="smtp_use_ssl" value="1" {{ "checked" if settings.smtp_use_ssl else "" }}>
+        {{ t("settings_smtp_ssl_label") }}
+      </label>
+      <div class="hint">{{ t("settings_smtp_ssl_hint") }}</div>
+    </div>
 
     <label>{{ t("settings_ncbi_label") }}</label>
     <input type="text" name="ncbi_api_key" value="{{ settings.ncbi_api_key }}">
@@ -36,6 +59,47 @@
     </div>
   </form>
 </div>
+
+<script>
+(function () {
+  var PRESETS = {
+    gmail: { host: "smtp.gmail.com", port: 587, ssl: false },
+    qq: { host: "smtp.qq.com", port: 465, ssl: true },
+    163: { host: "smtp.163.com", port: 465, ssl: true },
+    outlook: { host: "smtp-mail.outlook.com", port: 587, ssl: false }
+  };
+
+  var select = document.getElementById("provider-select");
+  var hostInput = document.getElementById("smtp_host");
+  var portInput = document.getElementById("smtp_port");
+  var sslInput = document.getElementById("smtp_use_ssl");
+  var customFields = document.getElementById("custom-smtp-fields");
+
+  function detectProvider() {
+    var host = (hostInput.value || "").trim().toLowerCase();
+    for (var key in PRESETS) {
+      if (PRESETS[key].host === host) return key;
+    }
+    return "custom";
+  }
+
+  function applyPreset(key) {
+    var preset = PRESETS[key];
+    if (preset) {
+      hostInput.value = preset.host;
+      portInput.value = preset.port;
+      sslInput.checked = preset.ssl;
+    }
+    customFields.style.display = key === "custom" ? "" : "none";
+  }
+
+  select.value = detectProvider();
+  applyPreset(select.value);
+  select.addEventListener("change", function () {
+    applyPreset(select.value);
+  });
+})();
+</script>
 
 <div class="card">
   <h2>{{ t("settings_test_email_section") }}</h2>

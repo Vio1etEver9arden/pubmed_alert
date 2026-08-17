@@ -1,4 +1,5 @@
 .env
+.DS_Store
 data/*.db
 data/*.sqlite3
 data/app_secret.key

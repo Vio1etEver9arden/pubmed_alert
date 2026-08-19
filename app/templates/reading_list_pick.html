@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block title %}{{ t("reading_list_pick_title") }} - PubMed Alert{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <h1>{{ t("reading_list_pick_title") }}</h1>
+</div>
+
+{% if error %}
+<div class="banner warn">{{ t("reading_list_invalid_link") }}</div>
+{% elif submitted is not none %}
+<div class="banner ok">{{ t("reading_list_pick_submitted").format(n=submitted) }}</div>
+<p><a href="/reading-list">{{ t("link_view_reading_list") }}</a></p>
+{% else %}
+<div class="banner ok">{{ t("reading_list_pick_hint") }}</div>
+
+<form method="post" action="/reading-list/pick">
+  <input type="hidden" name="u" value="{{ u }}">
+  <input type="hidden" name="ids" value="{{ ids }}">
+  <input type="hidden" name="t" value="{{ token }}">
+
+  <div class="card">
+  {% for a in articles %}
+  <div class="article">
+    <label style="display:flex; align-items:flex-start; gap:10px;">
+      <input type="checkbox" name="selected" value="{{ a.id }}" style="margin-top:4px;">
+      <span>
+        <a href="{{ a.pubmed_url }}" target="_blank">{{ a.title }}</a>
+        <div class="meta">{{ a.authors }}</div>
+        <div class="meta"><b>{{ a.journal }}</b>{% if a.pub_date %} &middot; {{ a.pub_date }}{% endif %}
+          {% if a.jcr_quartile %}<span class="badge quartile">JCR {{ a.jcr_quartile }}</span>{% endif %}
+          {% if a.jif %}<span class="badge quartile">IF {{ "%.1f"|format(a.jif) }}</span>{% endif %}
+        </div>
+      </span>
+    </label>
+  </div>
+  {% endfor %}
+  </div>
+
+  <div class="actions">
+    <button class="btn" type="submit">{{ t("btn_add_selected") }}</button>
+  </div>
+</form>
+{% endif %}
+
+{% endblock %}

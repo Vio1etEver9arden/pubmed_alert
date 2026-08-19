@@ -14,8 +14,43 @@
 {% elif test_result == "err" %}
 <div class="banner warn">{{ t("test_email_failure") }}{{ test_error }}</div>
 {% endif %}
+{% if account_saved %}
+<div class="banner ok">{{ t("account_saved") }}</div>
+{% endif %}
+{% if account_error %}
+<div class="banner warn">{{ t(account_error) }}</div>
+{% endif %}
 
 <div class="banner ok">{{ t("settings_poll_note") }}</div>
+
+<div class="card">
+  <h2>{{ t("settings_account_section") }}</h2>
+  <div class="stack">
+    <label>{{ t("settings_account_username_label") }}</label>
+    <input type="text" value="{{ current_user.username }}" readonly disabled>
+
+    <label>{{ t("settings_account_email_label") }}</label>
+    <input type="text" value="{{ current_user.email }}" readonly disabled>
+  </div>
+
+  <details class="password-toggle">
+    <summary>{{ t("btn_change_password") }}</summary>
+    <form class="stack" method="post" action="/account/change-password">
+      <label>{{ t("field_current_password_label") }}</label>
+      <input type="password" name="current_password" required>
+
+      <label>{{ t("field_new_password_label") }}</label>
+      <input type="password" name="new_password" required minlength="8">
+
+      <label>{{ t("field_new_password_confirm_label") }}</label>
+      <input type="password" name="new_password_confirm" required minlength="8">
+
+      <div class="actions">
+        <button class="btn secondary" type="submit">{{ t("btn_change_password") }}</button>
+      </div>
+    </form>
+  </details>
+</div>
 
 <div class="card">
   <h2>{{ t("settings_sender_section") }}</h2>

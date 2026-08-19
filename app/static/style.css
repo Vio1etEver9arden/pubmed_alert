@@ -44,6 +44,7 @@ body {
 
 .top-nav {
   display: flex;
+  align-items: center;
   gap: 16px;
   margin-left: 12px;
 }
@@ -54,6 +55,21 @@ body {
   font-weight: 600;
 }
 .top-nav a:hover { color: var(--accent); }
+.top-nav form { margin: 0; }
+.top-nav button.link-button {
+  display: block;
+  background: none;
+  border: none;
+  margin: 0;
+  padding: 0;
+  font: inherit;
+  font-size: 13px;
+  line-height: inherit;
+  color: var(--muted);
+  font-weight: 600;
+  cursor: pointer;
+}
+.top-nav button.link-button:hover { color: var(--accent); }
 
 .lang-switch {
   margin-left: auto;
@@ -114,6 +130,20 @@ h2 { font-size: 18px; }
 .btn.danger { background: var(--danger); }
 .btn.small { padding: 5px 10px; font-size: 12px; }
 
+.password-toggle { margin-top: 16px; }
+.password-toggle summary {
+  display: inline-block;
+  padding: 8px 16px;
+  border-radius: 8px;
+  background: #f0f0f2;
+  color: var(--text);
+  font-size: 14px;
+  cursor: pointer;
+  list-style: none;
+}
+.password-toggle summary::-webkit-details-marker { display: none; }
+.password-toggle[open] summary { margin-bottom: 12px; }
+
 .card {
   background: var(--card);
   border: 1px solid var(--border);
@@ -155,18 +185,18 @@ h2 { font-size: 18px; }
 
 .actions { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
 
-form.stack label {
+.stack label {
   display: block;
   font-size: 13px;
   font-weight: 600;
   margin: 14px 0 6px;
 }
-form.stack input[type=text],
-form.stack input[type=email],
-form.stack input[type=password],
-form.stack input[type=number],
-form.stack select,
-form.stack textarea {
+.stack input[type=text],
+.stack input[type=email],
+.stack input[type=password],
+.stack input[type=number],
+.stack select,
+.stack textarea {
   width: 100%;
   padding: 9px 10px;
   border-radius: 8px;
@@ -174,7 +204,7 @@ form.stack textarea {
   font-size: 14px;
   font-family: inherit;
 }
-form.stack textarea { min-height: 70px; resize: vertical; }
+.stack textarea { min-height: 70px; resize: vertical; }
 .checkbox-label { display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 13px; margin: 14px 0 6px; }
 .checkbox-label input[type=checkbox] { width: auto; }
 .hint { font-size: 12px; color: var(--muted); margin-top: 4px; }

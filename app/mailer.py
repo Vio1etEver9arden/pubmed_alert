@@ -8,9 +8,11 @@ stored encrypted).
 import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
+from types import SimpleNamespace
 
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
+from app import config, crypto
 from app.config import MAIL_FROM_NAME, TEMPLATES_DIR
 
 _env = Environment(
@@ -24,8 +26,20 @@ def is_configured(settings):
 
 
 def render_digest_html(subscription, articles):
+    """有配置 APP_BASE_URL 的话，额外算一个"选择要加入待阅读的文献"链接（一封邮件一个链接，
+    带上这封邮件里所有文章的 id，不是每篇文章单独一个链接）；没配置就是 None，模板里不显示。
+    If APP_BASE_URL is configured, also builds one "select articles for your reading list" link
+    per email (covering every article in this digest, not one link per article); otherwise None
+    and the template simply omits it.
+    """
     template = _env.get_template("email_digest.html")
-    return template.render(subscription=subscription, articles=articles)
+    pick_url = None
+    if config.APP_BASE_URL and articles:
+        article_ids = [a.id for a in articles]
+        token = crypto.make_reading_list_token(subscription.user_id, article_ids)
+        ids_str = ",".join(str(i) for i in article_ids)
+        pick_url = f"{config.APP_BASE_URL}/reading-list/pick?u={subscription.user_id}&ids={ids_str}&t={token}"
+    return template.render(subscription=subscription, articles=articles, reading_list_pick_url=pick_url)
 
 
 def _send(settings, to_email, subject, html):
@@ -74,3 +88,50 @@ def send_test_email(settings, to_email):
         "<p>✅ This is a test email from PubMed Alert — if you received it, your sender account setup is working.</p>"
     )
     _send(settings, to_email, "[PubMed Alert] 测试邮件 Test Email", html)
+
+
+def _system_settings():
+    return SimpleNamespace(
+        smtp_host=config.SYSTEM_SMTP_HOST,
+        smtp_port=config.SYSTEM_SMTP_PORT,
+        smtp_use_ssl=config.SYSTEM_SMTP_USE_SSL,
+        sender_email=config.SYSTEM_SENDER_EMAIL,
+        sender_password=config.SYSTEM_SENDER_PASSWORD,
+    )
+
+
+def is_system_mailer_configured():
+    return is_configured(_system_settings())
+
+
+def send_verification_email(to_email, code, purpose):
+    """purpose: "register"（注册验证） 或 "reset"（找回密码）。
+    用系统级发件账号发送，跟每个用户自己的发件邮箱配置无关——调用方需要提前用
+    is_system_mailer_configured() 检查。
+    purpose: "register" or "reset". Sent via the system-level sender account, independent of any
+    user's own sender settings — callers should check is_system_mailer_configured() first.
+    """
+    if not is_system_mailer_configured():
+        raise RuntimeError(
+            "系统发件账号尚未在 .env 里配置 (system sender account not configured in .env)"
+        )
+
+    if purpose == "reset":
+        subject = "[PubMed Alert] 找回密码验证码 Password reset code"
+        intro = (
+            "<p>你正在找回 PubMed Alert 账号的密码，验证码是：</p>"
+            "<p>You're resetting your PubMed Alert account password. Your code is:</p>"
+        )
+    else:
+        subject = "[PubMed Alert] 注册验证码 Registration verification code"
+        intro = (
+            "<p>你正在注册 PubMed Alert 账号，验证码是：</p>"
+            "<p>You're registering a PubMed Alert account. Your code is:</p>"
+        )
+
+    html = (
+        f"{intro}"
+        f"<p style=\"font-size:28px;font-weight:700;letter-spacing:4px;\">{code}</p>"
+        "<p>10 分钟内有效，请勿泄露给他人。10 minutes validity — don't share this with anyone.</p>"
+    )
+    _send(_system_settings(), to_email, subject, html)

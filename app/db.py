@@ -17,10 +17,68 @@ Base = declarative_base()
 FREQUENCY_CHOICES = ["immediate", "daily", "every_3_days", "weekly"]
 
 
+class User(Base):
+    __tablename__ = "users"
+
+    id = Column(Integer, primary_key=True)
+    username = Column(String(50), nullable=False)  # 唯一索引在迁移里建，见 _migrate_add_missing_columns
+    email = Column(String(255), unique=True, nullable=False)
+    password_hash = Column(String(255), nullable=False)
+    created_at = Column(DateTime, default=dt.datetime.utcnow)
+
+
+class PendingRegistration(Base):
+    """还没验证邮箱的注册请求；验证码对了才会真正变成一条 User。
+    A registration that hasn't verified its email yet; only becomes a real User once the code
+    checks out.
+    """
+    __tablename__ = "pending_registrations"
+
+    id = Column(Integer, primary_key=True)
+    email = Column(String(255), nullable=False)
+    username = Column(String(50), nullable=False)
+    password_hash = Column(String(255), nullable=False)
+    code_hash = Column(String(64), nullable=False)
+    attempts = Column(Integer, default=0)
+    last_sent_at = Column(DateTime, default=dt.datetime.utcnow)
+    expires_at = Column(DateTime, nullable=False)
+    created_at = Column(DateTime, default=dt.datetime.utcnow)
+
+
+class PasswordReset(Base):
+    """找回密码用的验证码请求。Password-reset verification code request."""
+    __tablename__ = "password_resets"
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    code_hash = Column(String(64), nullable=False)
+    attempts = Column(Integer, default=0)
+    last_sent_at = Column(DateTime, default=dt.datetime.utcnow)
+    expires_at = Column(DateTime, nullable=False)
+    created_at = Column(DateTime, default=dt.datetime.utcnow)
+
+
+class Session(Base):
+    """登录会话；cookie 里放的是原始随机 token，这里只存它的哈希，防止数据库泄露直接可用。
+    Login session; the cookie holds the raw random token — only its hash is stored here, so a
+    DB leak doesn't directly hand out usable login sessions.
+    """
+    __tablename__ = "sessions"
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    token_hash = Column(String(64), unique=True, nullable=False, index=True)
+    created_at = Column(DateTime, default=dt.datetime.utcnow)
+    expires_at = Column(DateTime, nullable=False)
+
+    user = relationship("User")
+
+
 class Subscription(Base):
     __tablename__ = "subscriptions"
 
     id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id"))
     label = Column(String(200), nullable=False)
 
     keywords_json = Column(Text, default="[]")   # JSON list of str
@@ -84,6 +142,17 @@ class SeenArticle(Base):
     jcr_quartile = Column(String(10), nullable=True)   # 官方 JCR 分区，例如 "Q1" official JCR quartile, e.g. "Q1"
     jif = Column(Float, nullable=True)                  # 影响因子 (Journal Impact Factor)
 
+    # 首次检索"相关+最新"双批次的标记（互不排斥，一篇文章可能两个都是 True）；后续增量发现的
+    # 文章两个都是 False。Flags for the initial "relevant + recent" dual-batch search (not
+    # mutually exclusive — an article can be in both); regular incremental finds have both False.
+    initial_relevant = Column(Boolean, default=False)
+    initial_recent = Column(Boolean, default=False)
+
+    # 待阅读清单。Reading list.
+    saved_for_reading = Column(Boolean, default=False)
+    saved_at = Column(DateTime, nullable=True)
+    read_at = Column(DateTime, nullable=True)
+
     first_seen_at = Column(DateTime, default=dt.datetime.utcnow)
     sent_at = Column(DateTime, nullable=True)
 
@@ -95,12 +164,13 @@ class SeenArticle(Base):
 
 
 class AppSettings(Base):
-    """全局设置，单例（固定 id=1），通过网页「设置」页面编辑。
-    Global settings, a singleton row (fixed id=1), edited via the web "Settings" page.
+    """每个用户各自的设置（发件邮箱等），通过网页「设置」页面编辑。
+    Per-user settings (sender email, etc.), edited via the web "Settings" page.
     """
     __tablename__ = "app_settings"
 
     id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id"), unique=True)
     smtp_host = Column(String(255), default="smtp.gmail.com")
     smtp_port = Column(Integer, default=587)
     smtp_use_ssl = Column(Boolean, default=False)  # True=隐式SSL(常见465端口) False=STARTTLS(常见587端口)
@@ -142,6 +212,16 @@ def _migrate_add_missing_columns():
             conn.exec_driver_sql("ALTER TABLE seen_articles ADD COLUMN jcr_quartile VARCHAR(10)")
         if "jif" not in article_cols:
             conn.exec_driver_sql("ALTER TABLE seen_articles ADD COLUMN jif FLOAT")
+        if "initial_relevant" not in article_cols:
+            conn.exec_driver_sql("ALTER TABLE seen_articles ADD COLUMN initial_relevant BOOLEAN DEFAULT 0")
+        if "initial_recent" not in article_cols:
+            conn.exec_driver_sql("ALTER TABLE seen_articles ADD COLUMN initial_recent BOOLEAN DEFAULT 0")
+        if "saved_for_reading" not in article_cols:
+            conn.exec_driver_sql("ALTER TABLE seen_articles ADD COLUMN saved_for_reading BOOLEAN DEFAULT 0")
+        if "saved_at" not in article_cols:
+            conn.exec_driver_sql("ALTER TABLE seen_articles ADD COLUMN saved_at DATETIME")
+        if "read_at" not in article_cols:
+            conn.exec_driver_sql("ALTER TABLE seen_articles ADD COLUMN read_at DATETIME")
         conn.commit()
 
         # 旧版本只支持 Gmail，字段叫 gmail_address / gmail_app_password_enc；这里迁移到通用的
@@ -164,6 +244,40 @@ def _migrate_add_missing_columns():
             conn.exec_driver_sql("ALTER TABLE app_settings DROP COLUMN gmail_app_password_enc")
             conn.commit()
 
+        # 引入多用户登录：给订阅和设置各加一个"归属用户"列。旧数据库里已有的行没有归属，
+        # 会在第一个用户注册时被自动认领（见 main.py 的 /register 处理逻辑）。
+        # Introducing multi-user login: add an "owning user" column to subscriptions and
+        # settings. Pre-existing rows in an older database have no owner yet — they get
+        # auto-adopted by whichever user registers first (see the /register handler in main.py).
+        sub_cols = [row[1] for row in conn.exec_driver_sql("PRAGMA table_info(subscriptions)")]
+        if "user_id" not in sub_cols:
+            conn.exec_driver_sql("ALTER TABLE subscriptions ADD COLUMN user_id INTEGER REFERENCES users(id)")
+            conn.commit()
+
+        settings_cols2 = [row[1] for row in conn.exec_driver_sql("PRAGMA table_info(app_settings)")]
+        if "user_id" not in settings_cols2:
+            conn.exec_driver_sql("ALTER TABLE app_settings ADD COLUMN user_id INTEGER REFERENCES users(id)")
+            conn.commit()
+
+        # 加用户名登录：SQLite 的 ADD COLUMN 不支持直接带 UNIQUE/NOT NULL，所以分三步——先加个
+        # 不带约束的列，用 Python 给已有账号回填一个占位用户名（避免和已有账号数量对不上导致的
+        # 唯一性冲突），最后才建唯一索引。
+        # Adding username-based login: SQLite's ADD COLUMN can't carry UNIQUE/NOT NULL directly,
+        # so this happens in three steps — add an unconstrained column, backfill a placeholder
+        # username in Python for any pre-existing accounts, then create the unique index last.
+        user_cols = [row[1] for row in conn.exec_driver_sql("PRAGMA table_info(users)")]
+        if "username" not in user_cols:
+            conn.exec_driver_sql("ALTER TABLE users ADD COLUMN username VARCHAR(50)")
+            conn.commit()
+            for row in conn.exec_driver_sql("SELECT id, email FROM users WHERE username IS NULL"):
+                placeholder = f"{row[1].split('@')[0]}_{row[0]}"
+                conn.exec_driver_sql(
+                    "UPDATE users SET username = ? WHERE id = ?", (placeholder, row[0])
+                )
+            conn.commit()
+            conn.exec_driver_sql("CREATE UNIQUE INDEX IF NOT EXISTS uq_users_username ON users(username)")
+            conn.commit()
+
 
 def init_db():
     Base.metadata.create_all(bind=engine)
@@ -172,3 +286,11 @@ def init_db():
 
 def get_session():
     return SessionLocal()
+
+
+def get_db():
+    session = get_session()
+    try:
+        yield session
+    finally:
+        session.close()

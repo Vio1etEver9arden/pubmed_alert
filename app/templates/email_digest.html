@@ -13,7 +13,11 @@
 
     {% for a in articles %}
     <div style="padding:16px 0; border-top:1px solid #e5e5ea;">
-      <div style="font-size:12px; color:#0a84ff; font-weight:600; margin-bottom:4px;">🆕 NEW</div>
+      <div style="font-size:12px; color:#0a84ff; font-weight:600; margin-bottom:4px;">
+        {% if a.initial_relevant %}⭐ 最相关 MOST RELEVANT{% endif %}
+        {% if a.initial_recent %}{% if a.initial_relevant %} &middot; {% endif %}🕐 最新 MOST RECENT{% endif %}
+        {% if not a.initial_relevant and not a.initial_recent %}🆕 NEW{% endif %}
+      </div>
       <a href="{{ a.pubmed_url }}" style="font-size:16px; font-weight:600; color:#1d1d1f; text-decoration:none;">
         {{ a.title }}
       </a>
@@ -48,6 +52,14 @@
       {% endif %}
     </div>
     {% endfor %}
+
+    {% if reading_list_pick_url %}
+    <p style="margin-top:20px; text-align:center;">
+      <a href="{{ reading_list_pick_url }}" style="display:inline-block; background:#0a84ff; color:#fff; padding:10px 20px; border-radius:8px; text-decoration:none; font-size:14px; font-weight:600;">
+        📌 选择要加入待阅读的文献 Select articles to add to reading list
+      </a>
+    </p>
+    {% endif %}
 
     <p style="margin-top:24px; font-size:11px; color:#aeaeb2; border-top:1px solid #e5e5ea; padding-top:12px;">
       影响因子 / 分区数据来自 Journal Citation Reports，仅供参考。<br>

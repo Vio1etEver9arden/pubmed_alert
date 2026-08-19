@@ -29,6 +29,7 @@ python3 -m venv .venv
     --workpath build/mac \
     --add-data "app/templates:app/templates" \
     --add-data "app/static:app/static" \
+    --add-data "data/jcr_cache.csv:data" \
     --copy-metadata APScheduler \
     --collect-submodules uvicorn \
     run.py

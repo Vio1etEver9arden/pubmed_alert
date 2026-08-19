@@ -3,6 +3,7 @@
 data/*.db
 data/*.sqlite3
 data/app_secret.key
+data/invite_code.txt
 *.pdf
 __pycache__/
 *.pyc

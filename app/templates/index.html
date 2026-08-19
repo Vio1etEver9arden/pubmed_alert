@@ -2,6 +2,10 @@
 {% block title %}{{ t("my_subscriptions") }} - PubMed Alert{% endblock %}
 {% block content %}
 
+{% if adopted %}
+<div class="banner ok">{{ t("first_run_adopted_notice") }}</div>
+{% endif %}
+
 {% if not mailer_configured %}
 <div class="banner warn">{{ t("banner_mailer_not_configured") }}</div>
 {% endif %}

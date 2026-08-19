@@ -6,6 +6,44 @@ This file documents notable changes to this project. Format follows
 
 本文件记录本项目每个版本的重要变化。格式参照 [Keep a Changelog](https://keepachangelog.com/)，版本号规则参照 [语义化版本 SemVer](https://semver.org/lang/zh-CN/)。
 
+## [1.2.0] - 2026-08-19
+
+### Added
+- Multi-user login: anyone can register an account (email + password + invite code); each account only sees and manages its own subscriptions and has its own independent sender-email settings.
+  多用户登录：可以自助注册账号（邮箱+密码+邀请码）；每个账号只能看到/管理自己的订阅，发件邮箱设置也各自独立。
+- Registration requires an invite code, as an extra safeguard on top of network-level access control (Tailscale/SSH tunnel/VPN) — auto-generated on first run into `data/invite_code.txt`, or set your own via `REGISTER_INVITE_CODE` in `.env`.
+  注册需要邀请码，作为网络层访问控制（Tailscale/SSH隧道/VPN）之外的额外一道保险——首次启动自动生成在 `data/invite_code.txt`，也可以在 `.env` 里用 `REGISTER_INVITE_CODE` 自定义。
+- Registration now requires email verification: submit username + email + password + invite code, then enter the 6-digit code emailed to you to finish creating the account. Codes expire after 10 minutes, allow 5 attempts, and can be resent (60-second cooldown).
+  注册改为需要邮箱验证：提交用户名+邮箱+密码+邀请码后，填入发到邮箱的6位验证码才算注册成功。验证码10分钟有效、最多试5次，可以重新发送（60秒冷却时间）。
+- Log in with either your username or your email address.
+  登录支持用户名或邮箱。
+- Forgot-password flow: request a verification code by username or email, then use it to set a new password. The response is identical whether or not the account exists, to avoid revealing registered accounts.
+  找回密码：用用户名或邮箱申请验证码，验证码对了就能设置新密码。不管账号存不存在都显示同一句提示，避免暴露哪些账号已注册。
+- A new system-level sender account (`SYSTEM_SENDER_EMAIL`/`SYSTEM_SENDER_PASSWORD`/`SYSTEM_SMTP_*` in `.env`) sends these verification emails — separate from each user's own per-account sender settings.
+  新增一个系统级发件账号（`.env` 里的 `SYSTEM_SENDER_EMAIL`/`SYSTEM_SENDER_PASSWORD`/`SYSTEM_SMTP_*`），专门用来发这些验证码邮件，跟每个用户自己的发件设置是分开的。
+- The Settings page's account card now shows your username/email plainly, with password-changing tucked behind a collapsible "Change password" toggle to save space.
+  设置页的账号卡片现在直接显示用户名/邮箱，"修改密码"收起在一个可展开的按钮后面，省地方。
+- Pre-existing subscriptions/settings from before this upgrade are automatically adopted by the first account that successfully registers.
+  升级前已有的订阅/设置，会被第一个注册成功的账号自动认领。
+- The packaged macOS/Windows apps now bundle the JCR impact-factor/quartile data file, so it works out of the box instead of only when running from source.
+  打包版的 macOS/Windows 程序现在会自带 JCR 影响因子/分区数据文件，不再只有源码运行才能用上。
+- A new subscription's first check now searches two batches — the 10 most relevant articles from the last 5 years, and the 20 most recent regardless of date — merging and deduplicating them, with each article tagged as "most relevant" and/or "most recent" in the UI and email.
+  新订阅第一次检查现在会查两批——近5年内最相关的10篇，以及不限时间最新的20篇——合并去重后一起作为入门文献，每篇文章在网页和邮件里都会标注属于"最相关"和/或"最新"。
+- A unified reading list across all your subscriptions: save articles of interest from any subscription's article list, and manage them all from a new "Reading list" page (mark as read, remove).
+  新增跨所有订阅的统一待阅读清单：可以在任意订阅的文献列表里把感兴趣的文章加入清单，在新的「待阅读」页面统一管理（标记已读、移除）。
+- Alert emails now include a "select articles to add to your reading list" link — no login needed. Clicking it opens a page (still without login) listing that email's articles with checkboxes, so you can pick which ones to save in one submission.
+  提醒邮件里新增"选择要加入待阅读的文献"链接，不需要登录——点开后是一个（同样不需要登录的）勾选页面，列出这封邮件里的文章，勾选想要的几篇一次性提交即可。
+- New optional `APP_BASE_URL` setting in `.env` for the reading-list email link (the app doesn't otherwise know its own externally-reachable address); if left unset, emails still send normally, just without that link.
+  `.env` 新增可选的 `APP_BASE_URL` 配置项，用于待阅读邮件链接（程序本身不知道自己对外的访问地址）；不配置的话邮件照常发送，只是没有这个链接。
+
+### Changed
+- Expired pending-registration and password-reset requests are now swept away hourly by a background job, so they don't accumulate indefinitely.
+  过期的待验证注册请求和找回密码请求现在会被一个后台任务每小时清理一次，不会无限堆积。
+
+### Fixed
+- Closed several IDOR-style gaps where any logged-in-less visitor could edit/pause/delete/poll any subscription by guessing its URL — every subscription route now checks ownership.
+  修复了此前任何人改一下网址里的编号就能编辑/暂停/删除/触发别人订阅的漏洞——所有订阅相关的路由现在都会校验归属。
+
 ## [1.1.1] - 2026-08-17
 
 ### Added

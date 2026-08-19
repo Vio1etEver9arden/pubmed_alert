@@ -5,9 +5,9 @@
 Subscribe to new PubMed articles by keyword / journal / author, and get them emailed to you —
 instantly or as a digest — annotated with the official JCR impact factor and quartile.
 
-> Built for small-scale personal or small-group use, running locally, with no user-registration
-> system. To move it to your own server later, just copy the folder over and install
-> dependencies — no code changes needed.
+> Built for small-scale personal or small-group use — run it locally or deploy it to your own
+> server, no code changes needed either way. Multiple people can each register their own account
+> and keep their own subscriptions and sender email separate from everyone else's.
 
 ---
 
@@ -21,6 +21,8 @@ instantly or as a digest — annotated with the official JCR impact factor and q
 - 🌏 Interface available in English / Chinese / Japanese — switch anytime, top-right corner
 - ⚙️ The sender account and the NCBI API key are configured on the web Settings page (password
   encrypted at rest) — no config files to edit by hand
+- 🔐 Multiple people can register their own accounts — each only sees/manages their own
+  subscriptions, with their own independent sender email settings
 
 ---
 
@@ -43,12 +45,33 @@ If someone shared a `PubMedAlert.exe` (Windows) or `PubMedAlert` (Mac) with you,
 double-click it — your browser opens automatically. See "Sharing with non-technical users"
 below if you're the one building and sharing it.
 
+### Register an account
+
+Whether run locally or as a packaged app, the first thing you'll see is a registration page —
+a **username**, email, password, and an **invite code**. You don't need to invent the invite code
+yourself: one is auto-generated on first launch and saved to `data/invite_code.txt` — open that
+file and copy it in. After submitting, you'll get a verification code by email (valid 10 minutes)
+— enter it to finish registering. That email is sent via a **system sender account** the deployer
+configures in `.env` (`SYSTEM_SENDER_EMAIL`/`SYSTEM_SENDER_PASSWORD`/etc., see the comments in
+`.env`) — separate from your own personal sender-email settings — so it must be set up first or
+registration will fail.
+
+If this device already has subscriptions/settings from before (e.g. upgrading from an older
+version), **the first account to successfully register adopts all of that pre-existing data
+automatically** — so register your own account first right after upgrading, before sharing the
+invite code with anyone else. After that, everyone registers their own account and can't see
+each other's subscriptions.
+
+Log in with either your username or email. Forgot your password? Use the "Forgot password?"
+link on the login page — also reset via an emailed verification code.
+
 ### Configure the sender account
 
-Open the app, click **Settings** in the top nav, pick your provider from the **Email provider**
-dropdown (Gmail / QQ Mail / 163 Mail / Outlook, or "Custom" to fill in an SMTP server by hand),
-fill in your address and password/auth code (see below), then save. Use the "Send test email"
-button to verify it works.
+Once registered/logged in, click **Settings** in the top nav, pick your provider from the
+**Email provider** dropdown (Gmail / QQ Mail / 163 Mail / Outlook, or "Custom" to fill in an SMTP
+server by hand), fill in your address and password/auth code (see below), then save. Use the
+"Send test email" button to verify it works. Each account's sender settings are independent and
+don't affect anyone else's.
 
 ---
 
@@ -116,12 +139,22 @@ automatically — nothing to set up.
    waiting for the scheduled job.
 
 A brand-new subscription's first check sends the **10 most relevant** articles from the **last
-5 years**; every check after that only sends newly-published articles.
+5 years** plus the **20 most recent** overall (overlaps deduplicated) as a "starter" batch —
+both the web UI and the email tag which article(s) are "most relevant" vs. "most recent"; every
+check after that only sends newly-published articles.
 
 **Frequency semantics:**
 - **immediate** — sends an email as soon as new articles are found.
 - **daily / every_3_days / weekly** — batches newly-found articles into one digest email when
   due; if nothing new was found, no email is sent.
+
+**Reading list**: from any subscription's "View articles" page, save articles you're interested
+in to a unified reading list spanning all your subscriptions (there's a nav link for it) — mark
+them read, remove them, etc. Alert emails also include a "select articles to add to your reading
+list" link that needs no login — it opens a (also login-free) page listing that email's articles
+with checkboxes, so you can pick which ones to save in one submission. That email link only
+appears once the deployer sets `APP_BASE_URL` in `.env` (the app can't otherwise know its own
+externally-reachable address); without it, emails still send normally, just without that link.
 
 **Closing the browser tab ≠ quitting the app**: it needs to keep running in the background to
 check and send on your configured schedule. Closing the browser tab alone doesn't stop it —
@@ -137,7 +170,15 @@ background, it just brings the browser back to it instead of erroring or startin
 If someone doesn't have (or doesn't want) Python, package the app into a standalone executable
 with the scripts in `packaging/`. They just double-click the file and a browser tab opens
 automatically — nothing else to install. **Each person runs their own independent copy**, with
-its own database and sender account config.
+its own database; alternatively, deploy the app to one server and have everyone register their
+own account there instead (see "Register an account" above) — both work, pick whichever fits
+better: separate computers each running their own copy, or one shared address everyone logs into.
+
+⚠️ If deploying to a server for multiple people: **don't expose it directly to the public
+internet**. Since registration is open (anyone who knows the address and has the invite code can
+sign up), you still need Tailscale / an SSH tunnel / a VPN — some way to restrict who can even
+reach the address. The invite code is an extra safety net, not a replacement for that network
+isolation.
 
 Building must happen on the target OS (PyInstaller can't cross-compile):
 

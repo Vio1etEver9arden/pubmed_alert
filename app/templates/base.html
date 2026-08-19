@@ -11,8 +11,16 @@
     <a href="/" class="brand">📚 PubMed Alert</a>
     <span class="subtitle">{{ t("app_subtitle") }}</span>
     <nav class="top-nav">
-      <a href="/">{{ t("nav_subscriptions") }}</a>
-      <a href="/settings">{{ t("nav_settings") }}</a>
+      {% if current_user %}
+        <a href="/">{{ t("nav_subscriptions") }}</a>
+        <a href="/reading-list">{{ t("nav_reading_list") }}</a>
+        <a href="/settings">{{ t("nav_settings") }}</a>
+        <form method="post" action="/logout">
+          <button class="link-button" type="submit">{{ t("nav_logout") }}</button>
+        </form>
+      {% else %}
+        <a href="/login">{{ t("nav_login") }}</a>
+      {% endif %}
     </nav>
     <div class="lang-switch">
       {% for code, name in langs %}

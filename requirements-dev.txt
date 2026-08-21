@@ -1,0 +1,6 @@
+# 跑测试才需要装的东西，运行程序本身不需要（所以单独放一个文件，不跟 requirements.txt 混在一起）。
+# Only needed to run the test suite — not required to run the app itself (kept separate from
+# requirements.txt for that reason).
+-r requirements.txt
+pytest>=8.0
+httpx>=0.27

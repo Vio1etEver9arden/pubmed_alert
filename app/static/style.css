@@ -183,7 +183,31 @@ h2 { font-size: 18px; }
   padding: 24px 0 16px;
 }
 
-.actions { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+.actions { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; align-items: center; }
+
+.star-form { display: inline-flex; gap: 2px; }
+.star-btn {
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  color: #d8d8dc;
+}
+.star-btn.filled { color: #ff9f0a; }
+.star-btn:hover { color: #ff9f0a; }
+
+.search-bar { display: flex; gap: 8px; margin-bottom: 16px; }
+.search-bar input[type=text] {
+  flex: 1;
+  padding: 9px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  font-size: 14px;
+  font-family: inherit;
+}
 
 .stack label {
   display: block;

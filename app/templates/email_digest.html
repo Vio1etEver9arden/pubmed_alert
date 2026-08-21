@@ -50,6 +50,18 @@
       {% if a.doi %}
       <div style="font-size:12px; color:#8e8e93; margin-top:6px;">DOI: {{ a.doi }}</div>
       {% endif %}
+
+      {% if a.oa_pdf_url %}
+      <div style="margin-top:8px;">
+        <a href="{{ a.oa_pdf_url }}" style="font-size:13px; color:#0a84ff;">📄 开放获取全文 PDF Open access full text PDF</a>
+      </div>
+      {% endif %}
+
+      {% if a.duplicate_labels %}
+      <div style="font-size:12px; color:#8e8e93; margin-top:6px;">
+        🔁 同时匹配你的其他订阅 Also matches your other subscription(s): {{ a.duplicate_labels|join(", ") }}
+      </div>
+      {% endif %}
     </div>
     {% endfor %}
 

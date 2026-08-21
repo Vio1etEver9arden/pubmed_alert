@@ -153,6 +153,15 @@ class SeenArticle(Base):
     saved_at = Column(DateTime, nullable=True)
     read_at = Column(DateTime, nullable=True)
 
+    # 用户自己打的星级，表示阅读优先级；0 = 未打分。
+    # User-assigned star rating indicating reading priority; 0 = unrated.
+    priority = Column(Integer, default=0)
+
+    # 开放获取全文 PDF 链接（首次发现这篇文章时查一次 Unpaywall，查不到就是 None，不会重试）。
+    # Open-access full-text PDF link (looked up once via Unpaywall when the article is first
+    # found; None if no OA copy was found — never retried afterward).
+    oa_pdf_url = Column(String(500), nullable=True)
+
     first_seen_at = Column(DateTime, default=dt.datetime.utcnow)
     sent_at = Column(DateTime, nullable=True)
 
@@ -222,6 +231,10 @@ def _migrate_add_missing_columns():
             conn.exec_driver_sql("ALTER TABLE seen_articles ADD COLUMN saved_at DATETIME")
         if "read_at" not in article_cols:
             conn.exec_driver_sql("ALTER TABLE seen_articles ADD COLUMN read_at DATETIME")
+        if "priority" not in article_cols:
+            conn.exec_driver_sql("ALTER TABLE seen_articles ADD COLUMN priority INTEGER DEFAULT 0")
+        if "oa_pdf_url" not in article_cols:
+            conn.exec_driver_sql("ALTER TABLE seen_articles ADD COLUMN oa_pdf_url VARCHAR(500)")
         conn.commit()
 
         # 旧版本只支持 Gmail，字段叫 gmail_address / gmail_app_password_enc；这里迁移到通用的

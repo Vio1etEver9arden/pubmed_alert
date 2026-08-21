@@ -17,8 +17,15 @@ else:
     BASE_DIR = Path(__file__).resolve().parent.parent
     RESOURCE_DIR = BASE_DIR
 
-DATA_DIR = BASE_DIR / "data"
-DATA_DIR.mkdir(exist_ok=True)
+# 数据目录（数据库、密钥、邀请码这些"会变化的东西"都放在这里）平时就是项目自带的 data/ 文件夹；
+# 测试的时候会把 PUBMED_ALERT_DATA_DIR 这个环境变量设成一个临时文件夹，让测试用的数据库、密钥
+# 全部隔离在别处，不会碰到真实的 data/subscriptions.db。
+# The data directory (database, secret key, invite code — anything that changes at runtime)
+# normally is just the project's own data/ folder; tests set the PUBMED_ALERT_DATA_DIR
+# environment variable to a temporary folder so the test database/keys stay fully isolated from
+# the real data/subscriptions.db.
+DATA_DIR = Path(os.getenv("PUBMED_ALERT_DATA_DIR", str(BASE_DIR / "data")))
+DATA_DIR.mkdir(exist_ok=True, parents=True)
 
 TEMPLATES_DIR = RESOURCE_DIR / "app" / "templates"
 STATIC_DIR = RESOURCE_DIR / "app" / "static"

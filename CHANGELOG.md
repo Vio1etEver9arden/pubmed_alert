@@ -6,6 +6,26 @@ This file documents notable changes to this project. Format follows
 
 本文件记录本项目每个版本的重要变化。格式参照 [Keep a Changelog](https://keepachangelog.com/)，版本号规则参照 [语义化版本 SemVer](https://semver.org/lang/zh-CN/)。
 
+## [1.2.1] - 2026-08-21
+
+### Added
+- Export any subscription's articles or your whole reading list as an RIS citation file, compatible with EndNote / Zotero / Mendeley.
+  可以把某个订阅的文献或整个待阅读清单导出为 RIS 格式引文文件，兼容 EndNote / Zotero / Mendeley。
+- Keywords/journals/authors now also accept commas, Chinese enumeration commas (、), and semicolons as separators, in addition to one-per-line.
+  关键词/期刊/作者除了换行分隔，现在也支持用英文逗号、中文逗号、顿号、分号分隔。
+- A search box on the article list and reading list pages, matching against title / journal / authors.
+  文献列表和待阅读清单页面新增搜索框，可按标题/期刊/作者搜索。
+- A "Export my data (backup)" button on the Settings page, downloading all your subscriptions and discovered articles as one JSON file.
+  「设置」页面新增"导出我的数据（备份）"按钮，把所有订阅和已发现文献导出成一份 JSON 文件。
+- A 1–5 star reading-priority rating on saved articles.
+  文献可以打 1–5 星表示阅读优先级。
+- Open-access full-text PDF links, looked up automatically via [Unpaywall](https://unpaywall.org/) the first time an article is found, and shown on the web pages and in alert emails when available.
+  新增开放获取全文 PDF 链接——首次发现文章时自动通过 [Unpaywall](https://unpaywall.org/) 查询一次，查得到的话会在网页和邮件里显示。
+- A note on the web and in alert emails when the same article matches more than one of your subscriptions — both emails still get sent, just annotated, so it's clear it isn't a duplicate mistake.
+  同一篇文章同时命中你名下多个订阅时，网页和邮件里都会标注一下——两边邮件仍然照常发送，只是加一句提示，避免误以为是重复发错了。
+- A first automated test suite (pytest), covering password/token/invite-code logic, IDOR/ownership regression checks, RIS formatting, and keyword parsing, running against a fully isolated temporary database and with all outbound email mocked out.
+  新增第一批自动化测试（pytest），覆盖密码/令牌/邀请码逻辑、权限隔离（IDOR）回归检查、RIS 格式、关键词拆分，全程用隔离的临时数据库、发邮件也全部打桩，不会碰真实数据或真的发邮件。
+
 ## [1.2.0] - 2026-08-19
 
 ### Added

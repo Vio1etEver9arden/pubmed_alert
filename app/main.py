@@ -1,12 +1,14 @@
 import datetime as dt
+import json
 import logging
+import re
 from urllib.parse import quote
 
 from fastapi import FastAPI, Request, Form, Depends, HTTPException
-from fastapi.responses import RedirectResponse, HTMLResponse
+from fastapi.responses import RedirectResponse, HTMLResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from sqlalchemy import func
+from sqlalchemy import func, or_
 
 from app import __version__
 from app.db import (
@@ -17,7 +19,7 @@ from app.scheduler import start_scheduler, poll_subscription, dispatch_subscript
 from app.settings import get_settings
 from app.i18n import get_translator, SUPPORTED_LANGS, LANG_NAMES, DEFAULT_LANG
 from app.config import TEMPLATES_DIR, STATIC_DIR, APP_BASE_URL
-from app import mailer, journal_rank, crypto
+from app import mailer, journal_rank, crypto, ris
 from app.auth import (
     NotAuthenticated,
     SESSION_COOKIE,
@@ -70,8 +72,17 @@ def on_startup():
         )
 
 
+_SPLIT_RE = re.compile(r"[\n,，、;；]+")
+
+
 def _split_lines(text: str):
-    return [line.strip() for line in (text or "").splitlines() if line.strip()]
+    """按换行/英文逗号/中文逗号/顿号/分号 拆分——不强求用户只用换行分隔。
+    Split on newline / English comma / Chinese comma / enumeration comma / semicolon — users
+    aren't forced to use one line per item.
+    """
+    if not text:
+        return []
+    return [part.strip() for part in _SPLIT_RE.split(text) if part.strip()]
 
 
 def _current_lang(request: Request) -> str:
@@ -505,14 +516,29 @@ def poll_now(sub_id: int, user: User = Depends(get_current_user), db=Depends(get
     return RedirectResponse(f"/subscriptions/{sub_id}/preview", status_code=303)
 
 
+def _search_filter(query, q: str):
+    """在标题/期刊/作者里做一个简单的关键词包含匹配。
+    A simple substring match across title/journal/authors.
+    """
+    if not q or not q.strip():
+        return query
+    like = f"%{q.strip()}%"
+    return query.filter(or_(
+        SeenArticle.title.ilike(like),
+        SeenArticle.journal.ilike(like),
+        SeenArticle.authors.ilike(like),
+    ))
+
+
 @app.get("/subscriptions/{sub_id}/preview", response_class=HTMLResponse)
 def preview_subscription(
-    sub_id: int, request: Request, user: User = Depends(get_current_user), db=Depends(get_db)
+    sub_id: int, request: Request, q: str = "",
+    user: User = Depends(get_current_user), db=Depends(get_db),
 ):
     sub = _owned_subscription(db, sub_id, user)
+    query = db.query(SeenArticle).filter(SeenArticle.subscription_id == sub_id)
     articles = (
-        db.query(SeenArticle)
-        .filter(SeenArticle.subscription_id == sub_id)
+        _search_filter(query, q)
         .order_by(SeenArticle.first_seen_at.desc())
         .limit(100)
         .all()
@@ -520,7 +546,25 @@ def preview_subscription(
     return render(request, "preview.html", {
         "sub": sub,
         "articles": articles,
+        "q": q,
     }, db)
+
+
+@app.get("/subscriptions/{sub_id}/export.ris")
+def export_subscription_ris(sub_id: int, user: User = Depends(get_current_user), db=Depends(get_db)):
+    sub = _owned_subscription(db, sub_id, user)
+    articles = (
+        db.query(SeenArticle)
+        .filter(SeenArticle.subscription_id == sub_id)
+        .order_by(SeenArticle.first_seen_at.desc())
+        .all()
+    )
+    filename = re.sub(r"[^A-Za-z0-9_-]+", "_", sub.label) or "subscription"
+    return Response(
+        content=ris.build_ris(articles),
+        media_type="application/x-research-info-systems",
+        headers={"Content-Disposition": f'attachment; filename="{filename}.ris"'},
+    )
 
 
 def _owned_article(db, article_id: int, user: User) -> SeenArticle:
@@ -557,16 +601,49 @@ def toggle_read_article(article_id: int, user: User = Depends(get_current_user),
     return RedirectResponse("/reading-list", status_code=303)
 
 
+@app.post("/articles/{article_id}/priority")
+def set_article_priority(
+    article_id: int, stars: int = Form(...),
+    user: User = Depends(get_current_user), db=Depends(get_db),
+):
+    art = _owned_article(db, article_id, user)
+    art.priority = max(0, min(5, stars))
+    db.commit()
+    dest = "/reading-list" if art.saved_for_reading else f"/subscriptions/{art.subscription_id}/preview"
+    return RedirectResponse(dest, status_code=303)
+
+
 @app.get("/reading-list", response_class=HTMLResponse)
-def reading_list_page(request: Request, user: User = Depends(get_current_user), db=Depends(get_db)):
+def reading_list_page(
+    request: Request, q: str = "", user: User = Depends(get_current_user), db=Depends(get_db)
+):
+    query = (
+        db.query(SeenArticle)
+        .join(Subscription, SeenArticle.subscription_id == Subscription.id)
+        .filter(Subscription.user_id == user.id, SeenArticle.saved_for_reading.is_(True))
+    )
+    articles = (
+        _search_filter(query, q)
+        .order_by(SeenArticle.read_at.isnot(None), SeenArticle.priority.desc(), SeenArticle.saved_at.desc())
+        .all()
+    )
+    return render(request, "reading_list.html", {"articles": articles, "q": q}, db)
+
+
+@app.get("/reading-list/export.ris")
+def export_reading_list_ris(user: User = Depends(get_current_user), db=Depends(get_db)):
     articles = (
         db.query(SeenArticle)
         .join(Subscription, SeenArticle.subscription_id == Subscription.id)
         .filter(Subscription.user_id == user.id, SeenArticle.saved_for_reading.is_(True))
-        .order_by(SeenArticle.read_at.isnot(None), SeenArticle.saved_at.desc())
+        .order_by(SeenArticle.priority.desc(), SeenArticle.saved_at.desc())
         .all()
     )
-    return render(request, "reading_list.html", {"articles": articles}, db)
+    return Response(
+        content=ris.build_ris(articles),
+        media_type="application/x-research-info-systems",
+        headers={"Content-Disposition": 'attachment; filename="reading-list.ris"'},
+    )
 
 
 @app.get("/reading-list/pick", response_class=HTMLResponse)
@@ -636,6 +713,61 @@ def settings_page(request: Request, user: User = Depends(get_current_user), db=D
         "account_saved": request.query_params.get("account_saved") == "1",
         "account_error": request.query_params.get("account_error"),
     }, db)
+
+
+@app.get("/account/export.json")
+def export_account_data(user: User = Depends(get_current_user), db=Depends(get_db)):
+    """导出这个账号的订阅+已发现文献，作为个人备份用；不包含发件邮箱密码这类敏感配置。
+    Exports this account's subscriptions + discovered articles as a personal backup — does not
+    include sensitive config like the sender email password.
+    """
+    def article_dict(a: SeenArticle) -> dict:
+        return {
+            "pmid": a.pmid,
+            "title": a.title,
+            "authors": a.authors,
+            "journal": a.journal,
+            "pub_date": a.pub_date,
+            "doi": a.doi,
+            "abstract": a.abstract,
+            "jcr_quartile": a.jcr_quartile,
+            "jif": a.jif,
+            "oa_pdf_url": a.oa_pdf_url,
+            "saved_for_reading": a.saved_for_reading,
+            "priority": a.priority,
+            "first_seen_at": a.first_seen_at.isoformat() if a.first_seen_at else None,
+            "read_at": a.read_at.isoformat() if a.read_at else None,
+        }
+
+    subs = db.query(Subscription).filter(Subscription.user_id == user.id).all()
+    data = {
+        "exported_at": dt.datetime.utcnow().isoformat(),
+        "username": user.username,
+        "email": user.email,
+        "subscriptions": [
+            {
+                "label": sub.label,
+                "keywords": sub.keywords,
+                "journals": sub.journals,
+                "authors": sub.authors,
+                "query_override": sub.query_override,
+                "recipient_email": sub.recipient_email,
+                "frequency": sub.frequency,
+                "active": sub.active,
+                "articles": [
+                    article_dict(a) for a in
+                    db.query(SeenArticle).filter(SeenArticle.subscription_id == sub.id).all()
+                ],
+            }
+            for sub in subs
+        ],
+    }
+    filename = f"pubmed-alert-backup-{dt.datetime.utcnow().strftime('%Y%m%d')}.json"
+    return Response(
+        content=json.dumps(data, ensure_ascii=False, indent=2),
+        media_type="application/json",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 @app.post("/account/change-password")

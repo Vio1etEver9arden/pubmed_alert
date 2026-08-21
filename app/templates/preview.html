@@ -4,8 +4,16 @@
 
 <div class="page-header">
   <h1>{{ sub.label }}</h1>
-  <a class="btn secondary" href="/">{{ t("back") }}</a>
+  <div class="actions">
+    <a class="btn secondary small" href="/subscriptions/{{ sub.id }}/export.ris">{{ t("btn_export_ris") }}</a>
+    <a class="btn secondary" href="/">{{ t("back") }}</a>
+  </div>
 </div>
+
+<form class="search-bar" method="get" action="/subscriptions/{{ sub.id }}/preview">
+  <input type="text" name="q" value="{{ q }}" placeholder="{{ t('search_placeholder') }}">
+  <button class="btn secondary" type="submit">{{ t("btn_search") }}</button>
+</form>
 
 {% if not articles %}
 <div class="empty">{{ t("preview_empty_state") }}</div>
@@ -23,6 +31,7 @@
     {% if a.initial_recent %}<span class="badge quartile">{{ t("label_initial_recent") }}</span>{% endif %}
   </div>
   <a href="{{ a.pubmed_url }}" target="_blank">{{ a.title }}</a>
+  {% if a.oa_pdf_url %}<a class="badge quartile" href="{{ a.oa_pdf_url }}" target="_blank">📄 {{ t("label_oa_pdf") }}</a>{% endif %}
   <div class="meta">{{ a.authors }}</div>
   <div class="meta"><b>{{ a.journal }}</b>{% if a.pub_date %} &middot; {{ a.pub_date }}{% endif %}</div>
   <div class="actions">
@@ -30,6 +39,14 @@
       <button class="btn small secondary" type="submit">
         {{ t("btn_unsave_from_reading_list") if a.saved_for_reading else t("btn_save_to_reading_list") }}
       </button>
+    </form>
+    <form class="star-form" method="post" action="/articles/{{ a.id }}/priority" title="{{ t('star_rating_hint') }}">
+      {% for i in range(1, 6) %}
+      <button class="star-btn{{ ' filled' if a.priority >= i else '' }}" type="submit" name="stars" value="{{ i }}">★</button>
+      {% endfor %}
+      {% if a.priority > 0 %}
+      <button class="star-btn" type="submit" name="stars" value="0" title="{{ t('btn_clear_priority') }}">✕</button>
+      {% endif %}
     </form>
   </div>
 </div>

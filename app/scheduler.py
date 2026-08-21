@@ -18,7 +18,7 @@ import logging
 
 from apscheduler.schedulers.background import BackgroundScheduler
 
-from app import mailer, pubmed, journal_rank
+from app import mailer, pubmed, journal_rank, unpaywall
 from app.db import get_session, Subscription, SeenArticle, PendingRegistration, PasswordReset
 from app.settings import get_settings
 
@@ -131,6 +131,7 @@ def poll_subscription(session, sub: Subscription, settings):
             jif=rank["jif"] if rank else None,
             initial_relevant=art["pmid"] in relevant_set,
             initial_recent=art["pmid"] in recent_set,
+            oa_pdf_url=unpaywall.lookup(art["doi"]),
         )
         session.add(row)
         new_count += 1
@@ -140,6 +141,28 @@ def poll_subscription(session, sub: Subscription, settings):
 
     session.commit()
     return new_count
+
+
+def _cross_subscription_labels(session, user_id, pmid, exclude_subscription_id):
+    """同一个用户名下，除了 exclude_subscription_id 之外，还有哪些订阅也见过这个 pmid。
+    用于邮件里标注"这篇文章同时匹配了你的另一个订阅"，不代表去重/漏发，两边的邮件都照常发送。
+
+    Which of this same user's other subscriptions (besides exclude_subscription_id) have also
+    seen this pmid. Used to annotate the email with "this article also matches your other
+    subscription X" — this is a note only, not deduplication; both emails still get sent.
+    """
+    rows = (
+        session.query(Subscription.label)
+        .join(SeenArticle, SeenArticle.subscription_id == Subscription.id)
+        .filter(
+            Subscription.user_id == user_id,
+            SeenArticle.pmid == pmid,
+            Subscription.id != exclude_subscription_id,
+        )
+        .distinct()
+        .all()
+    )
+    return [row[0] for row in rows]
 
 
 def dispatch_subscription(session, sub: Subscription, settings):
@@ -161,6 +184,12 @@ def dispatch_subscription(session, sub: Subscription, settings):
     if not mailer.is_configured(settings):
         logger.warning("发件邮箱未配置，跳过发送 (sender account not configured, skipping send) for subscription %s", sub.id)
         return
+
+    # 这是一个临时属性，只在这次发送时算一遍、给模板用，不会存进数据库。
+    # A transient attribute computed just for this send and read by the template — never
+    # persisted to the database.
+    for row in pending:
+        row.duplicate_labels = _cross_subscription_labels(session, sub.user_id, row.pmid, sub.id)
 
     try:
         mailer.send_digest(settings, sub, pending)

@@ -13,11 +13,19 @@ instantly or as a digest — annotated with the official JCR impact factor and q
 
 ## Features
 
-- 🔍 Search new PubMed articles by keyword / journal / author (or write a raw advanced query)
+- 🔍 Search new PubMed articles by keyword / journal / author (or write a raw advanced query) —
+  separate multiple entries with a newline, comma, 、, or semicolon
 - 📧 Sends notification emails via your own email account (Gmail / QQ Mail / 163 Mail / Outlook, or any other SMTP mailbox)
 - ⏱ Each subscription has its own frequency: instant / daily / every 3 days / weekly digest
 - 🏷 Emails are annotated with the official JCR impact factor and quartile (Q1–Q4)
-- 🌐 A simple web UI to manage subscriptions (create/edit/delete, poll now, view articles)
+- 🌐 A simple web UI to manage subscriptions (create/edit/delete, poll now, view articles), with a
+  search box and 1–5 star reading-priority ratings for saved articles
+- 📑 Export any subscription's articles or your whole reading list as an RIS citation file
+  (EndNote / Zotero / Mendeley compatible)
+- 📄 Open-access full-text PDF links, added automatically when available (via Unpaywall)
+- 🔁 A note when the same article matches more than one of your subscriptions, so you know it's
+  not a mistake if you see it twice
+- 💾 One-click JSON export/backup of your subscriptions and discovered articles
 - 🌏 Interface available in English / Chinese / Japanese — switch anytime, top-right corner
 - ⚙️ The sender account and the NCBI API key are configured on the web Settings page (password
   encrypted at rest) — no config files to edit by hand
@@ -150,11 +158,22 @@ check after that only sends newly-published articles.
 
 **Reading list**: from any subscription's "View articles" page, save articles you're interested
 in to a unified reading list spanning all your subscriptions (there's a nav link for it) — mark
-them read, remove them, etc. Alert emails also include a "select articles to add to your reading
-list" link that needs no login — it opens a (also login-free) page listing that email's articles
-with checkboxes, so you can pick which ones to save in one submission. That email link only
-appears once the deployer sets `APP_BASE_URL` in `.env` (the app can't otherwise know its own
-externally-reachable address); without it, emails still send normally, just without that link.
+them read, remove them, rate them 1–5 stars, search by title/journal/author, or export the whole
+list (or a single subscription's articles) as an RIS citation file. Alert emails also include a
+"select articles to add to your reading list" link that needs no login — it opens a (also
+login-free) page listing that email's articles with checkboxes, so you can pick which ones to
+save in one submission. That email link only appears once the deployer sets `APP_BASE_URL` in
+`.env` (the app can't otherwise know its own externally-reachable address); without it, emails
+still send normally, just without that link.
+
+**Open-access full text**: when a newly-found article has a free full-text PDF available (looked
+up via [Unpaywall](https://unpaywall.org/)), a link to it is shown next to the article on the web
+and in the email — no setup needed. If the same article happens to match more than one of your
+subscriptions, both emails still get sent, but each is annotated with a small note so you know
+it's not a mistake.
+
+**Personal backup**: the Settings page has an "Export my data (backup)" button that downloads all
+your subscriptions and discovered articles as a single JSON file, for your own backup/records.
 
 **Closing the browser tab ≠ quitting the app**: it needs to keep running in the background to
 check and send on your configured schedule. Closing the browser tab alone doesn't stop it —

@@ -13,11 +13,12 @@ instantly or as a digest — annotated with the official JCR impact factor and q
 
 ## Features
 
-- 🔍 Search new PubMed articles by keyword / journal / author (or write a raw advanced query) —
-  separate multiple entries with a newline, comma, 、, or semicolon
+- 🔍 Search new PubMed articles by keyword / journal / author (or write a raw advanced query),
+  one per line
 - 📧 Sends notification emails via your own email account (Gmail / QQ Mail / 163 Mail / Outlook, or any other SMTP mailbox)
 - ⏱ Each subscription has its own frequency: instant / daily / every 3 days / weekly digest
-- 🏷 Emails are annotated with the official JCR impact factor and quartile (Q1–Q4)
+- 🏷 Emails are annotated with the official JCR impact factor and quartile (Q1–Q4), with the
+  impact-factor badge color-coded by value
 - 🌐 A simple web UI to manage subscriptions (create/edit/delete, poll now, view articles), with a
   search box and 1–5 star reading-priority ratings for saved articles
 - 📑 Export any subscription's articles or your whole reading list as an RIS citation file
@@ -25,6 +26,10 @@ instantly or as a digest — annotated with the official JCR impact factor and q
 - 📄 Open-access full-text PDF links, added automatically when available (via Unpaywall)
 - 🔁 A note when the same article matches more than one of your subscriptions, so you know it's
   not a mistake if you see it twice
+- 🤖 **Optional AI features** (bring your own API key — Claude, OpenAI, Gemini, DeepSeek, Qwen,
+  Grok, Doubao, or any OpenAI-compatible endpoint): a plain-language summary and 0-100 relevance
+  score for every new article, automatic title translation, keyword extraction, a
+  natural-language-to-search-query generator, and a monthly per-subscription trend digest email
 - 💾 One-click JSON export/backup of your subscriptions and discovered articles
 - 🌏 Interface available in English / Chinese / Japanese — switch anytime, top-right corner
 - ⚙️ The sender account and the NCBI API key are configured on the web Settings page (password
@@ -136,6 +141,40 @@ automatically — nothing to set up.
 
 ---
 
+## AI Features (Optional)
+
+Everything in this section is **off by default and billed to your own account** — nothing here
+costs anything or does anything until you configure it on the Settings page.
+
+On the Settings page, pick an **AI Provider** (Claude / OpenAI / Google Gemini / DeepSeek / Qwen /
+xAI Grok / Doubao / Custom), paste your own API key, and enter a model name (e.g.
+`claude-haiku-4-5`, `gpt-5.1`, `deepseek-chat` — check each provider's own site for their current
+model names, nothing is hard-coded here). Use the "Test AI connection" button to confirm it
+works. Leaving the API key blank disables every AI feature below with no errors.
+
+Once configured, every newly-found article automatically gets:
+- A 1-2 sentence plain-language **summary**
+- A **0-100 relevance score** against the subscription's topic (a rough, AI-judged signal for
+  sorting — not a precise measurement; pending articles are sent in score order, highest first)
+- A **translated title** and **summary**, if your interface language isn't English (the original
+  abstract is never translated; extracted keywords are always in English)
+- A handful of extracted **keywords**
+
+Two more opt-in pieces once AI is configured:
+- A **"describe what you want in plain language"** box on the subscription form that generates a
+  PubMed search query for you to review and edit before saving — nothing is auto-submitted.
+- A **monthly trend digest**: once a month, per subscription, a separate email synthesizing the
+  themes across that month's newly-found articles (skipped for a month with no new articles).
+
+⚠️ Except for Claude, every provider above is reached through an OpenAI-compatible calling
+convention (each provider's own docs confirm they support this) rather than a separate bespoke
+integration — Doubao (Volcengine Ark) is the one exception worth flagging: its "model name" field
+is actually the inference endpoint ID (`ep-...`) from your Ark console, and this provider hasn't
+been independently verified against primary documentation, so test the connection before relying
+on it.
+
+---
+
 ## How to Use
 
 1. Open the homepage and click **New Subscription**.
@@ -149,7 +188,13 @@ automatically — nothing to set up.
 A brand-new subscription's first check sends the **10 most relevant** articles from the **last
 5 years** plus the **20 most recent** overall (overlaps deduplicated) as a "starter" batch —
 both the web UI and the email tag which article(s) are "most relevant" vs. "most recent"; every
-check after that only sends newly-published articles.
+check after that only sends newly-published articles. **Editing** a subscription's
+keywords/journals/authors/custom query resets it to send one more starter batch on the next
+check too — instead of treating every historical match under the new criteria as newly found.
+
+Alert emails fully display up to **20 articles**; if a check finds more than that at once, the
+rest get a "view full list" link to the web page instead, so a large batch never gets clipped by
+your mail provider (Gmail and others cap message size).
 
 **Frequency semantics:**
 - **immediate** — sends an email as soon as new articles are found.

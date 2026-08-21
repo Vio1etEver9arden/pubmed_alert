@@ -97,6 +97,10 @@ class Subscription(Base):
     # last 5 years; afterwards, switches to sending only newly-updated articles)
     initial_poll_done = Column(Boolean, default=False)
 
+    # 上次发送"月度趋势总结"邮件的时间；None 表示从没发过。Last time the "monthly trend digest"
+    # email was sent for this subscription; None means never sent.
+    last_trend_sent_at = Column(DateTime, nullable=True)
+
     articles = relationship("SeenArticle", back_populates="subscription", cascade="all, delete-orphan")
 
     @property
@@ -162,6 +166,18 @@ class SeenArticle(Base):
     # found; None if no OA copy was found — never retried afterward).
     oa_pdf_url = Column(String(500), nullable=True)
 
+    # AI 生成的内容（总结/相关性/翻译标题/关键词），首次发现文章时按需生成一次，不会重试。
+    # AI-generated content (summary/relevance/translated title/keywords), generated once at
+    # first discovery, never retried.
+    # summary_en 始终是英文；summary_local 只有订阅所有者界面语言不是英文时才会生成，否则是 None。
+    # summary_en is always English; summary_local is only generated when the subscription
+    # owner's UI language isn't English, otherwise it's None.
+    ai_summary_en = Column(Text, nullable=True)
+    ai_summary_local = Column(Text, nullable=True)
+    ai_relevance_score = Column(Integer, nullable=True)  # 0-100，AI 主观判断，仅供参考排序
+    ai_translated_title = Column(Text, nullable=True)
+    ai_keywords_json = Column(Text, nullable=True)  # 始终是英文关键词的 JSON 数组
+
     first_seen_at = Column(DateTime, default=dt.datetime.utcnow)
     sent_at = Column(DateTime, nullable=True)
 
@@ -170,6 +186,14 @@ class SeenArticle(Base):
     @property
     def pubmed_url(self):
         return f"https://pubmed.ncbi.nlm.nih.gov/{self.pmid}/"
+
+    @property
+    def ai_keywords(self):
+        return json.loads(self.ai_keywords_json) if self.ai_keywords_json else []
+
+    @ai_keywords.setter
+    def ai_keywords(self, value):
+        self.ai_keywords_json = json.dumps(value, ensure_ascii=False) if value else None
 
 
 class AppSettings(Base):
@@ -189,6 +213,19 @@ class AppSettings(Base):
     poll_interval_hours = Column(Float, default=6.0)
     ui_language = Column(String(10), default="zh")  # 默认界面语言 default UI language
 
+    # AI 功能（可选，按用户自己的 key 付费）。ai_backend 只有两个取值："anthropic"（用官方
+    # anthropic SDK）或 "openai_compatible"（用 openai SDK 换 base_url，覆盖 OpenAI/Gemini/
+    # DeepSeek/千问/Grok/豆包等——这几家都提供了兼容 OpenAI 接口格式的调用方式）。
+    # AI features (optional, billed to the user's own key). ai_backend has only two values:
+    # "anthropic" (official anthropic SDK) or "openai_compatible" (openai SDK with a swapped
+    # base_url — covers OpenAI/Gemini/DeepSeek/Qwen/Grok/Doubao, which all expose an
+    # OpenAI-compatible calling convention).
+    ai_backend = Column(String(20), default="anthropic")
+    ai_provider_preset = Column(String(20), default="")  # 纯 UI 用，记录下拉框选的品牌，不参与调用逻辑
+    ai_base_url = Column(String(255), default="")  # 仅 ai_backend == "openai_compatible" 时使用
+    ai_api_key_enc = Column(String(500), default="")
+    ai_model = Column(String(100), default="claude-haiku-4-5")
+
     @property
     def sender_password(self):
         return crypto.decrypt(self.sender_password_enc)
@@ -196,6 +233,14 @@ class AppSettings(Base):
     @sender_password.setter
     def sender_password(self, value):
         self.sender_password_enc = crypto.encrypt(value)
+
+    @property
+    def ai_api_key(self):
+        return crypto.decrypt(self.ai_api_key_enc)
+
+    @ai_api_key.setter
+    def ai_api_key(self, value):
+        self.ai_api_key_enc = crypto.encrypt(value)
 
 
 def _migrate_add_missing_columns():
@@ -235,6 +280,16 @@ def _migrate_add_missing_columns():
             conn.exec_driver_sql("ALTER TABLE seen_articles ADD COLUMN priority INTEGER DEFAULT 0")
         if "oa_pdf_url" not in article_cols:
             conn.exec_driver_sql("ALTER TABLE seen_articles ADD COLUMN oa_pdf_url VARCHAR(500)")
+        if "ai_summary_en" not in article_cols:
+            conn.exec_driver_sql("ALTER TABLE seen_articles ADD COLUMN ai_summary_en TEXT")
+        if "ai_summary_local" not in article_cols:
+            conn.exec_driver_sql("ALTER TABLE seen_articles ADD COLUMN ai_summary_local TEXT")
+        if "ai_relevance_score" not in article_cols:
+            conn.exec_driver_sql("ALTER TABLE seen_articles ADD COLUMN ai_relevance_score INTEGER")
+        if "ai_translated_title" not in article_cols:
+            conn.exec_driver_sql("ALTER TABLE seen_articles ADD COLUMN ai_translated_title TEXT")
+        if "ai_keywords_json" not in article_cols:
+            conn.exec_driver_sql("ALTER TABLE seen_articles ADD COLUMN ai_keywords_json TEXT")
         conn.commit()
 
         # 旧版本只支持 Gmail，字段叫 gmail_address / gmail_app_password_enc；这里迁移到通用的
@@ -289,6 +344,27 @@ def _migrate_add_missing_columns():
                 )
             conn.commit()
             conn.exec_driver_sql("CREATE UNIQUE INDEX IF NOT EXISTS uq_users_username ON users(username)")
+            conn.commit()
+
+        # AI 功能新增列——全部可空/带默认值，旧账号自然就是"没配置 AI"的状态。
+        # New columns for AI features — all nullable/defaulted, so pre-existing accounts simply
+        # show up as "AI not configured".
+        settings_cols3 = [row[1] for row in conn.exec_driver_sql("PRAGMA table_info(app_settings)")]
+        if "ai_backend" not in settings_cols3:
+            conn.exec_driver_sql("ALTER TABLE app_settings ADD COLUMN ai_backend VARCHAR(20) DEFAULT 'anthropic'")
+        if "ai_provider_preset" not in settings_cols3:
+            conn.exec_driver_sql("ALTER TABLE app_settings ADD COLUMN ai_provider_preset VARCHAR(20) DEFAULT ''")
+        if "ai_base_url" not in settings_cols3:
+            conn.exec_driver_sql("ALTER TABLE app_settings ADD COLUMN ai_base_url VARCHAR(255) DEFAULT ''")
+        if "ai_api_key_enc" not in settings_cols3:
+            conn.exec_driver_sql("ALTER TABLE app_settings ADD COLUMN ai_api_key_enc VARCHAR(500) DEFAULT ''")
+        if "ai_model" not in settings_cols3:
+            conn.exec_driver_sql("ALTER TABLE app_settings ADD COLUMN ai_model VARCHAR(100) DEFAULT 'claude-haiku-4-5'")
+        conn.commit()
+
+        sub_cols2 = [row[1] for row in conn.exec_driver_sql("PRAGMA table_info(subscriptions)")]
+        if "last_trend_sent_at" not in sub_cols2:
+            conn.exec_driver_sql("ALTER TABLE subscriptions ADD COLUMN last_trend_sent_at DATETIME")
             conn.commit()
 
 

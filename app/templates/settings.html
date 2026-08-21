@@ -142,6 +142,93 @@
 </script>
 
 <div class="card">
+  <h2>{{ t("settings_ai_section") }}</h2>
+  <div class="hint">{{ t("settings_ai_intro") }}</div>
+  <form class="stack" method="post" action="/settings/ai" id="ai-form">
+    <label>{{ t("settings_ai_provider_label") }}</label>
+    <select id="ai-provider-select">
+      <option value="anthropic">Claude (Anthropic)</option>
+      <option value="openai">OpenAI</option>
+      <option value="gemini">Google Gemini</option>
+      <option value="deepseek">DeepSeek</option>
+      <option value="qwen">{{ "通义千问 Qwen" }}</option>
+      <option value="grok">xAI Grok</option>
+      <option value="doubao">{{ "豆包 Doubao" }}</option>
+      <option value="custom">{{ t("settings_provider_custom") }}</option>
+    </select>
+
+    <label>{{ t("settings_ai_key_label") }}</label>
+    <input type="password" name="ai_api_key" placeholder="{{ '••••••••••••••••' if settings.ai_api_key else 'sk-...' }}">
+    <div class="hint">{{ t("settings_ai_key_hint") }}</div>
+
+    <div id="ai-base-url-field">
+      <label>{{ t("settings_ai_base_url_label") }}</label>
+      <input type="text" name="ai_base_url" id="ai_base_url" placeholder="https://api.example.com/v1" value="{{ settings.ai_base_url }}">
+      <div class="hint">{{ t("settings_ai_base_url_hint") }}</div>
+    </div>
+
+    <label>{{ t("settings_ai_model_label") }}</label>
+    <input type="text" name="ai_model" id="ai_model" placeholder="claude-haiku-4-5" value="{{ settings.ai_model }}">
+    <div class="hint">{{ t("settings_ai_model_hint") }}</div>
+    <div class="hint" id="ai-doubao-hint" style="display:none;">{{ t("settings_ai_doubao_hint") }}</div>
+
+    <input type="hidden" name="ai_backend" id="ai_backend" value="{{ settings.ai_backend }}">
+    <input type="hidden" name="ai_provider_preset" id="ai_provider_preset" value="{{ settings.ai_provider_preset }}">
+
+    <div class="actions">
+      <button class="btn" type="submit">{{ t("btn_save_settings") }}</button>
+    </div>
+  </form>
+
+  <form method="post" action="/settings/test-ai">
+    <div class="actions">
+      <button class="btn secondary" type="submit" {{ "disabled" if not ai_configured else "" }}>{{ t("btn_test_ai") }}</button>
+    </div>
+  </form>
+  {% if ai_test_result == "ok" %}<div class="banner ok">{{ t("ai_test_success") }}</div>{% endif %}
+  {% if ai_test_result == "err" %}<div class="banner warn">{{ t("ai_test_failure") }}</div>{% endif %}
+</div>
+
+<script>
+(function () {
+  var AI_PRESETS = {
+    anthropic: { backend: "anthropic", base_url: "" },
+    openai:    { backend: "openai_compatible", base_url: "https://api.openai.com/v1" },
+    gemini:    { backend: "openai_compatible", base_url: "https://generativelanguage.googleapis.com/v1beta/openai/" },
+    deepseek:  { backend: "openai_compatible", base_url: "https://api.deepseek.com" },
+    qwen:      { backend: "openai_compatible", base_url: "https://dashscope.aliyuncs.com/compatible-mode/v1" },
+    grok:      { backend: "openai_compatible", base_url: "https://api.x.ai/v1" },
+    doubao:    { backend: "openai_compatible", base_url: "https://ark.cn-beijing.volces.com/api/v3" },
+    custom:    { backend: "openai_compatible", base_url: "" }
+  };
+
+  var select = document.getElementById("ai-provider-select");
+  var baseUrlField = document.getElementById("ai-base-url-field");
+  var baseUrlInput = document.getElementById("ai_base_url");
+  var backendInput = document.getElementById("ai_backend");
+  var presetInput = document.getElementById("ai_provider_preset");
+  var doubaoHint = document.getElementById("ai-doubao-hint");
+
+  function applyPreset(key, fillUrl) {
+    var preset = AI_PRESETS[key];
+    if (!preset) return;
+    backendInput.value = preset.backend;
+    presetInput.value = key;
+    if (fillUrl) baseUrlInput.value = preset.base_url;
+    baseUrlField.style.display = key === "anthropic" ? "none" : "";
+    doubaoHint.style.display = key === "doubao" ? "" : "none";
+  }
+
+  var initial = "{{ settings.ai_provider_preset or 'anthropic' }}";
+  select.value = AI_PRESETS[initial] ? initial : "anthropic";
+  applyPreset(select.value, false);
+  select.addEventListener("change", function () {
+    applyPreset(select.value, true);
+  });
+})();
+</script>
+
+<div class="card">
   <h2>{{ t("settings_test_email_section") }}</h2>
   <form class="stack" method="post" action="/settings/test-email">
     <label>{{ t("settings_test_email_label") }}</label>

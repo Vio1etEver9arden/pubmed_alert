@@ -169,6 +169,20 @@ h2 { font-size: 18px; }
 }
 .badge.off { background: #f0f0f2; color: var(--muted); }
 .badge.quartile { background: #eef6ff; color: #0a5cd8; }
+.badge.jif-high { background: #fdecea; color: #c0392b; }      /* IF > 10 */
+.badge.jif-mid-high { background: #fff4e5; color: #b9770e; }  /* 5 <= IF <= 10 */
+.badge.jif-mid { background: #fef9e7; color: #9a7d0a; }       /* 3 <= IF < 5 */
+.badge.jif-low { background: #eafaf1; color: #1e8449; }       /* IF < 3 */
+.badge.ai { background: #f3eefc; color: #6b3fa0; }
+
+.ai-box {
+  margin-top: 8px;
+  padding: 8px 10px;
+  background: #f5f9ff;
+  border-left: 3px solid #0a84ff;
+  font-size: 13px;
+  color: var(--text);
+}
 
 .meta {
   font-size: 13px;

@@ -24,12 +24,22 @@
     &middot; {{ t("reading_list_saved_at") }}: {{ a.saved_at.strftime("%Y-%m-%d %H:%M") if a.saved_at else "" }}
     &middot; {{ t("reading_list_from_subscription") }}: {{ a.subscription.label }}
     {% if a.jcr_quartile %}<span class="badge quartile">JCR {{ a.jcr_quartile }}</span>{% endif %}
-    {% if a.jif %}<span class="badge quartile">IF {{ "%.1f"|format(a.jif) }}</span>{% endif %}
+    {% if a.jif %}<span class="badge {{ jif_badge_class(a.jif) }}">IF {{ "%.1f"|format(a.jif) }}</span>{% endif %}
+    {% if a.ai_relevance_score is not none %}<span class="badge ai" title="{{ t('label_ai_relevance') }}">🎯 {{ a.ai_relevance_score }}</span>{% endif %}
   </div>
   <a href="{{ a.pubmed_url }}" target="_blank">{{ a.title }}</a>
+  {% if a.ai_translated_title %}<div class="meta">🌐 {{ a.ai_translated_title }}</div>{% endif %}
   {% if a.oa_pdf_url %}<a class="badge quartile" href="{{ a.oa_pdf_url }}" target="_blank">📄 {{ t("label_oa_pdf") }}</a>{% endif %}
   <div class="meta">{{ a.authors }}</div>
   <div class="meta"><b>{{ a.journal }}</b>{% if a.pub_date %} &middot; {{ a.pub_date }}{% endif %}</div>
+  {% if a.ai_summary_en or a.ai_keywords %}
+  <div class="ai-box">
+    {% if a.ai_summary_en %}<div>{{ a.ai_summary_en }}{% if a.ai_summary_local %} · {{ a.ai_summary_local }}{% endif %}</div>{% endif %}
+    {% if a.ai_keywords %}
+    <div style="margin-top:6px;">{% for kw in a.ai_keywords %}<span class="badge quartile">{{ kw }}</span>{% endfor %}</div>
+    {% endif %}
+  </div>
+  {% endif %}
   <div class="actions">
     <form method="post" action="/articles/{{ a.id }}/read" style="display:inline">
       <button class="btn small secondary" type="submit">

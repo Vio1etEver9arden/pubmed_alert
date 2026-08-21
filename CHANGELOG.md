@@ -6,6 +6,38 @@ This file documents notable changes to this project. Format follows
 
 本文件记录本项目每个版本的重要变化。格式参照 [Keep a Changelog](https://keepachangelog.com/)，版本号规则参照 [语义化版本 SemVer](https://semver.org/lang/zh-CN/)。
 
+## [1.3.0] - 2026-08-22
+
+### Added
+- Optional, per-user AI features, billed to each user's own account: a 1-2 sentence plain-language summary for every new article, a 0-100 AI relevance score against the subscription's topic, automatic title translation, English keyword extraction, a natural-language-to-PubMed-query generator on the subscription form, and a once-a-month per-subscription "trend digest" email synthesizing that month's articles.
+  新增可选的、按用户自己账号计费的 AI 功能：为每篇新文献生成 1-2 句话总结、0-100 的相关性打分、自动翻译标题、提取英文关键词、在订阅表单里用大白话生成 PubMed 检索式，以及每个订阅每月一封的"趋势总结"邮件。
+- AI provider choice on the Settings page: Claude (Anthropic), OpenAI, Google Gemini, DeepSeek, Qwen, xAI Grok, Doubao, or a custom OpenAI-compatible endpoint — pick one, paste your own API key and model name. Leaving it unset disables all AI features with no errors.
+  「设置」页面可以选择 AI 供应商：Claude (Anthropic)、OpenAI、Google Gemini、DeepSeek、通义千问、xAI Grok、豆包，或自定义的 OpenAI 兼容接口——填自己的 API Key 和模型名字即可；不填就不启用任何 AI 功能，不会报错。
+- Alert and trend-digest emails are English-only when the subscription owner's interface language is English, and bilingual (English + Chinese/Japanese) otherwise; AI-generated summaries follow the same rule, article abstracts are never translated, and AI-extracted keywords are always English.
+  提醒邮件和趋势总结邮件：订阅所有者界面语言是英文就发纯英文，是中文/日文就发英文+对应语言双语；AI 生成的总结遵循同样的规则，文献摘要原文永远不翻译，AI 提取的关键词永远只用英文。
+- Pending articles are now sent in order of AI relevance score (highest first) when available, falling back to the original discovery-time order otherwise.
+  待发送的文献现在会按 AI 相关性打分从高到低排序（没有打分的话回退到原来按发现时间的顺序）。
+- Alert emails cap at 20 fully-rendered articles to avoid being clipped by mail providers like Gmail on large batches; any remaining articles get a "view full list" link to the web page instead.
+  提醒邮件最多完整展示 20 篇文献，避免一次性文献太多时被 Gmail 等邮箱服务商截断；超出的部分改成一个"查看完整列表"的网页链接。
+- Editing a subscription's keywords/journals/authors/custom query now resets it to send one starter batch on the next check (like a new subscription), instead of treating every historical match under the new criteria as newly found.
+  编辑订阅的关键词/期刊/作者/自定义检索式后，下次检查会像新订阅一样只发一批入门文献，而不是把新检索条件匹配到的所有历史文献都当作新发现。
+- Unpaywall and AI lookups for newly-found articles now run concurrently instead of one at a time, substantially speeding up checks that discover many new articles at once.
+  新发现文献的 Unpaywall 查询和 AI 生成内容现在并发执行，不再一篇篇排队，一次发现很多新文章时检索速度明显加快。
+- `prompt_lab/`: a development-only scaffold (sample articles + a runner script) for testing and tuning the AI prompts in `app/ai_prompts.py`; not part of the running app and makes no real API calls unless explicitly configured.
+  新增 `prompt_lab/` 开发用文件夹（真实文章样本 + 跑分脚本），用来测试/调优 `app/ai_prompts.py` 里的提示词；不属于线上程序运行的一部分，不主动配置的话不会产生真实调用。
+
+### Changed
+- Reverted the 1.2.1 comma/enumeration-comma/semicolon keyword separators — some journal names legitimately contain a comma (e.g. "Proceedings of the National Academy of Sciences, USA"), so splitting on comma could cut a journal name in half and break its search. Keywords/journals/authors are newline-separated only again.
+  撤回了 1.2.1 版本"关键词支持逗号/顿号/分号分隔"的功能——有些期刊名字本身就带逗号（比如 "Proceedings of the National Academy of Sciences, USA"），按逗号拆分会把期刊名切开导致搜不到。关键词/期刊/作者恢复成只按换行分隔。
+- The IF (impact factor) badge on the web pages is now color-coded by value (red >10, orange 5-10, yellow 3-5, green <3) instead of a single fixed color.
+  网页上的影响因子（IF）徽章现在会按数值分档上色（>10 红、5-10 橙、3-5 黄、<3 绿），不再是固定的一种颜色。
+
+### Fixed
+- Fixed a bug where the Settings page's "sender email" and "AI features" sections — two separate forms both posting to `/settings` — would silently wipe each other's saved values, since a submitted form only carries its own fields. They now post to separate routes (`/settings` and `/settings/ai`).
+  修复了「设置」页面"发件邮箱"和"AI 功能"两个表单会互相清空对方已保存内容的 bug——两个表单都提交到同一个 `/settings` 路由，而提交表单只会带上表单自己的字段。现在分别提交到独立的路由（`/settings` 和 `/settings/ai`）。
+- Added tolerant JSON parsing and a larger output token limit for AI responses, reducing intermittent failures (missing summary/relevance/keywords on some articles but not others) seen with providers whose OpenAI-compatible mode is less strict about output format.
+  给 AI 回复增加了更宽容的 JSON 解析和更大的输出长度上限，减少了部分供应商（OpenAI 兼容模式对输出格式要求没那么严格）偶尔出现的"有的文章有总结/相关性/关键词，有的没有"的问题。
+
 ## [1.2.1] - 2026-08-21
 
 ### Added

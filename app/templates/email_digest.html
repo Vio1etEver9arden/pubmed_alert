@@ -8,19 +8,22 @@
 
     <h2 style="margin:0 0 4px 0; color:#1d1d1f;">📚 {{ subscription.label }}</h2>
     <p style="color:#6e6e73; margin:0 0 20px 0; font-size:14px;">
-      本次共 {{ articles|length }} 篇新文献 &middot; {{ articles|length }} new article(s) this time
+      {{ t("email_body_count", n=articles|length) }}
     </p>
 
     {% for a in articles %}
     <div style="padding:16px 0; border-top:1px solid #e5e5ea;">
       <div style="font-size:12px; color:#0a84ff; font-weight:600; margin-bottom:4px;">
-        {% if a.initial_relevant %}⭐ 最相关 MOST RELEVANT{% endif %}
-        {% if a.initial_recent %}{% if a.initial_relevant %} &middot; {% endif %}🕐 最新 MOST RECENT{% endif %}
-        {% if not a.initial_relevant and not a.initial_recent %}🆕 NEW{% endif %}
+        {% if a.initial_relevant %}{{ t("label_initial_relevant") }}{% endif %}
+        {% if a.initial_recent %}{% if a.initial_relevant %} &middot; {% endif %}{{ t("label_initial_recent") }}{% endif %}
+        {% if not a.initial_relevant and not a.initial_recent %}{{ t("email_new_tag") }}{% endif %}
       </div>
       <a href="{{ a.pubmed_url }}" style="font-size:16px; font-weight:600; color:#1d1d1f; text-decoration:none;">
         {{ a.title }}
       </a>
+      {% if a.ai_translated_title %}
+      <div style="font-size:13px; color:#3a3a3c; margin-top:2px;">🌐 {{ a.ai_translated_title }}</div>
+      {% endif %}
       <div style="font-size:13px; color:#6e6e73; margin-top:6px;">
         {{ a.authors }}
       </div>
@@ -30,19 +33,30 @@
           &middot; <span style="background:#eef6ff; color:#0a5cd8; padding:1px 6px; border-radius:4px;">JCR {{ a.jcr_quartile }}</span>
         {% endif %}
         {% if a.jif %}
-          &middot; <span style="background:#eef6ff; color:#0a5cd8; padding:1px 6px; border-radius:4px;">IF {{ "%.1f"|format(a.jif) }}</span>
+          {% set jif_bg, jif_fg = jif_badge_colors(a.jif) %}
+          &middot; <span style="background:{{ jif_bg }}; color:{{ jif_fg }}; padding:1px 6px; border-radius:4px;">IF {{ "%.1f"|format(a.jif) }}</span>
+        {% endif %}
+        {% if a.ai_relevance_score is not none %}
+          &middot; <span style="background:#f3eefc; color:#6b3fa0; padding:1px 6px; border-radius:4px;">🎯 {{ t("label_ai_relevance") }} {{ a.ai_relevance_score }}/100</span>
         {% endif %}
       </div>
 
-      {% if a.ai_summary %}
+      {% if a.ai_summary_en or a.ai_keywords %}
       <div style="margin-top:10px; padding:10px 12px; background:#f5f9ff; border-left:3px solid #0a84ff; font-size:13px; color:#1d1d1f;">
-        <b>🤖 AI 总结:</b> {{ a.ai_summary }}
+        {% if a.ai_summary_en %}
+        <div><b>{{ t("email_ai_summary_label") }}:</b> {{ a.ai_summary_en }}{% if a.ai_summary_local %} · {{ a.ai_summary_local }}{% endif %}</div>
+        {% endif %}
+        {% if a.ai_keywords %}
+        <div style="margin-top:6px;">
+          {% for kw in a.ai_keywords %}<span style="background:#eef6ff; color:#0a5cd8; padding:1px 6px; border-radius:4px; font-size:11px; margin-right:4px;">{{ kw }}</span>{% endfor %}
+        </div>
+        {% endif %}
       </div>
       {% endif %}
 
       {% if a.abstract %}
       <details style="margin-top:8px;">
-        <summary style="font-size:13px; color:#0a84ff; cursor:pointer;">摘要 Abstract</summary>
+        <summary style="font-size:13px; color:#0a84ff; cursor:pointer;">{{ t("email_abstract_label") }}</summary>
         <p style="font-size:13px; color:#3a3a3c; line-height:1.5;">{{ a.abstract }}</p>
       </details>
       {% endif %}
@@ -53,30 +67,36 @@
 
       {% if a.oa_pdf_url %}
       <div style="margin-top:8px;">
-        <a href="{{ a.oa_pdf_url }}" style="font-size:13px; color:#0a84ff;">📄 开放获取全文 PDF Open access full text PDF</a>
+        <a href="{{ a.oa_pdf_url }}" style="font-size:13px; color:#0a84ff;">📄 {{ t("label_oa_pdf") }}</a>
       </div>
       {% endif %}
 
       {% if a.duplicate_labels %}
       <div style="font-size:12px; color:#8e8e93; margin-top:6px;">
-        🔁 同时匹配你的其他订阅 Also matches your other subscription(s): {{ a.duplicate_labels|join(", ") }}
+        {{ t("email_duplicate_note") }} {{ a.duplicate_labels|join(", ") }}
       </div>
       {% endif %}
     </div>
     {% endfor %}
 
+    {% if hidden_count %}
+    <p style="margin-top:16px; padding:12px; background:#fff8ec; border-radius:8px; font-size:13px; color:#8a6d3b; text-align:center;">
+      {{ t("email_more_articles_note", n=hidden_count) }}
+      {% if view_all_url %}<br><a href="{{ view_all_url }}" style="color:#0a84ff; font-weight:600;">{{ t("email_view_all_link") }}</a>{% endif %}
+    </p>
+    {% endif %}
+
     {% if reading_list_pick_url %}
     <p style="margin-top:20px; text-align:center;">
       <a href="{{ reading_list_pick_url }}" style="display:inline-block; background:#0a84ff; color:#fff; padding:10px 20px; border-radius:8px; text-decoration:none; font-size:14px; font-weight:600;">
-        📌 选择要加入待阅读的文献 Select articles to add to reading list
+        📌 {{ t("reading_list_pick_title") }}
       </a>
     </p>
     {% endif %}
 
     <p style="margin-top:24px; font-size:11px; color:#aeaeb2; border-top:1px solid #e5e5ea; padding-top:12px;">
-      影响因子 / 分区数据来自 Journal Citation Reports，仅供参考。<br>
-      Impact factor / quartile data is from Journal Citation Reports, for reference only.<br>
-      由 PubMed Alert 自动发送 &middot; Sent automatically by PubMed Alert
+      {{ t("email_footer_jcr") }}<br>
+      {{ t("email_footer_sent_by") }}
     </p>
   </div>
 </body>

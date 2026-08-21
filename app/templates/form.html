@@ -1,19 +1,20 @@
 {% extends "base.html" %}
-{% block title %}{{ t("edit_subscription_title") if sub else t("new_subscription_title") }} - PubMed Alert{% endblock %}
+{% set is_edit = sub and sub.id %}
+{% block title %}{{ t("edit_subscription_title") if is_edit else t("new_subscription_title") }} - PubMed Alert{% endblock %}
 {% block content %}
 
 <div class="page-header">
-  <h1>{{ t("edit_subscription_title") if sub else t("new_subscription_title") }}</h1>
+  <h1>{{ t("edit_subscription_title") if is_edit else t("new_subscription_title") }}</h1>
   <a class="btn secondary" href="/">{{ t("back") }}</a>
 </div>
 
-{% if not sub %}
+{% if not is_edit %}
 <div class="banner ok">{{ t("initial_poll_hint") }}</div>
 {% endif %}
 
 <div class="card">
 <form class="stack" method="post"
-      action="{{ '/subscriptions/%d/edit' % sub.id if sub else '/subscriptions/new' }}">
+      action="{{ '/subscriptions/%d/edit'|format(sub.id) if is_edit else '/subscriptions/new' }}">
 
   <label>{{ t("field_label") }}</label>
   <input type="text" name="label" required placeholder="e.g. Tumor Immunotherapy Updates"
@@ -30,6 +31,19 @@
   <label>{{ t("field_authors_label") }}</label>
   <div class="hint">{{ t("field_authors_hint") }}</div>
   <textarea name="authors" placeholder="Zhang Wei">{{ sub.authors | join("\n") if sub else "" }}</textarea>
+
+  {% if ai_configured %}
+  <label>{{ t("field_ai_query_description_label") }}</label>
+  <div class="hint">{{ t("field_ai_query_description_hint") }}</div>
+  <textarea name="description" placeholder="e.g. recent trials combining CRISPR with cancer immunotherapy">{{ query_suggest_description or "" }}</textarea>
+  <div class="actions">
+    <button class="btn secondary" type="submit" formnovalidate
+            formaction="{{ '/subscriptions/%d/suggest-query'|format(sub.id) if sub and sub.id else '/subscriptions/new/suggest-query' }}">
+      {{ t("btn_generate_query") }}
+    </button>
+  </div>
+  {% if query_suggest_failed %}<div class="banner warn">{{ t("ai_query_suggest_failed") }}</div>{% endif %}
+  {% endif %}
 
   <label>{{ t("field_query_override_label") }}</label>
   <div class="hint">{{ t("field_query_override_hint") }}</div>
@@ -49,7 +63,7 @@
   </select>
 
   <div class="actions">
-    <button class="btn" type="submit">{{ t("btn_save") if sub else t("btn_create") }}</button>
+    <button class="btn" type="submit">{{ t("btn_save") if is_edit else t("btn_create") }}</button>
   </div>
 </form>
 </div>

@@ -72,6 +72,44 @@ def _load_index():
     return issn_index, title_index, list(title_index.keys())
 
 
+_JIF_EMAIL_COLORS = {
+    "jif-high": ("#fdecea", "#c0392b"),       # 红 red: IF > 10
+    "jif-mid-high": ("#fff4e5", "#b9770e"),   # 橙 orange: 5 <= IF <= 10
+    "jif-mid": ("#fef9e7", "#9a7d0a"),        # 黄 yellow: 3 <= IF < 5
+    "jif-low": ("#eafaf1", "#1e8449"),        # 绿 green: IF < 3
+}
+
+
+def jif_badge_class(jif):
+    """按影响因子数值分档，返回一个 CSS 类名后缀（网页上给 IF 徽章上色用）。
+    IF>10 红、5-10 橙、3-5 黄、<3 绿；没有影响因子数据就返回空字符串。
+
+    Buckets a JIF value into a CSS class suffix (used to color the IF badge on the web pages).
+    IF>10 red, 5-10 orange, 3-5 yellow, <3 green; an empty string if there's no JIF data.
+    """
+    if jif is None:
+        return ""
+    if jif > 10:
+        return "jif-high"
+    if jif >= 5:
+        return "jif-mid-high"
+    if jif >= 3:
+        return "jif-mid"
+    return "jif-low"
+
+
+def jif_badge_colors(jif):
+    """跟 jif_badge_class() 分档规则一样，但直接返回 (背景色, 文字色) 的十六进制颜色——邮件模板
+    要用，因为大多数邮件客户端不支持外部 CSS/`<style>` 里定义的 class，必须写成内联 style。
+
+    Same bucketing as jif_badge_class(), but returns (background, text) hex colors directly —
+    needed by the email template, since most email clients strip external CSS/`<style>` classes
+    and require inline style attributes instead.
+    """
+    cls = jif_badge_class(jif)
+    return _JIF_EMAIL_COLORS.get(cls, ("#eef6ff", "#0a5cd8"))
+
+
 def is_available():
     """JCR 数据文件是否已经放好 / whether the JCR data file has been placed"""
     return JCR_CSV_PATH.exists()

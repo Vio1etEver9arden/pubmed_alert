@@ -2,6 +2,7 @@ import datetime as dt
 import json
 import logging
 import re
+from types import SimpleNamespace
 from urllib.parse import quote
 
 from fastapi import FastAPI, Request, Form, Depends, HTTPException
@@ -19,7 +20,7 @@ from app.scheduler import start_scheduler, poll_subscription, dispatch_subscript
 from app.settings import get_settings
 from app.i18n import get_translator, SUPPORTED_LANGS, LANG_NAMES, DEFAULT_LANG
 from app.config import TEMPLATES_DIR, STATIC_DIR, APP_BASE_URL
-from app import mailer, journal_rank, crypto, ris
+from app import mailer, journal_rank, crypto, ris, ai
 from app.auth import (
     NotAuthenticated,
     SESSION_COOKIE,
@@ -45,6 +46,7 @@ logger = logging.getLogger("pubmed_alert.main")
 
 app = FastAPI(title="PubMed Alert")
 templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
+templates.env.globals["jif_badge_class"] = journal_rank.jif_badge_class
 app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 
 LANG_COOKIE = "lang"
@@ -72,17 +74,19 @@ def on_startup():
         )
 
 
-_SPLIT_RE = re.compile(r"[\n,，、;；]+")
-
-
 def _split_lines(text: str):
-    """按换行/英文逗号/中文逗号/顿号/分号 拆分——不强求用户只用换行分隔。
-    Split on newline / English comma / Chinese comma / enumeration comma / semicolon — users
-    aren't forced to use one line per item.
+    """只按换行拆分，一行一个。曾经支持逗号/顿号/分号分隔，但期刊名字本身经常带逗号
+    （比如 "Proceedings of the National Academy of Sciences, USA"），按逗号拆分会把这种期刊名
+    从中间切开，反而搜不到——所以改回只认换行。
+
+    Splits on newline only, one item per line. This used to also accept commas/enumeration
+    commas/semicolons as separators, but some journal names legitimately contain a comma (e.g.
+    "Proceedings of the National Academy of Sciences, USA") — splitting on comma would cut a
+    journal name like that in half and break the search, so this reverts to newline-only.
     """
     if not text:
         return []
-    return [part.strip() for part in _SPLIT_RE.split(text) if part.strip()]
+    return [line.strip() for line in text.splitlines() if line.strip()]
 
 
 def _current_lang(request: Request) -> str:
@@ -416,6 +420,42 @@ def new_subscription_form(request: Request, user: User = Depends(get_current_use
     return render(request, "form.html", {
         "sub": None,
         "frequency_choices": FREQUENCY_CHOICES,
+        "ai_configured": ai.is_configured(get_settings(db, user.id)),
+    }, db)
+
+
+@app.post("/subscriptions/new/suggest-query")
+def suggest_query_new(
+    request: Request,
+    description: str = Form(...),
+    label: str = Form(""),
+    keywords: str = Form(""),
+    journals: str = Form(""),
+    authors: str = Form(""),
+    recipient_email: str = Form(""),
+    frequency: str = Form("immediate"),
+    user: User = Depends(get_current_user),
+    db=Depends(get_db),
+):
+    """用大白话生成检索式；不会直接保存订阅，只是把生成结果填回表单，用户看一眼、可以手动改，
+    再点正常的"创建"按钮才真正生效。
+    Generates a query from a plain-language description; never saves the subscription — just
+    fills the result back into the form for the user to review/edit before clicking the normal
+    "Create" button.
+    """
+    settings = get_settings(db, user.id)
+    suggested = ai.generate_query(description, settings)
+    draft = SimpleNamespace(
+        id=None, label=label, recipient_email=recipient_email, frequency=frequency,
+        query_override=suggested,
+        keywords=_split_lines(keywords), journals=_split_lines(journals), authors=_split_lines(authors),
+    )
+    return render(request, "form.html", {
+        "sub": draft,
+        "frequency_choices": FREQUENCY_CHOICES,
+        "ai_configured": ai.is_configured(settings),
+        "query_suggest_description": description,
+        "query_suggest_failed": suggested is None,
     }, db)
 
 
@@ -462,6 +502,38 @@ def edit_subscription_form(
     return render(request, "form.html", {
         "sub": sub,
         "frequency_choices": FREQUENCY_CHOICES,
+        "ai_configured": ai.is_configured(get_settings(db, user.id)),
+    }, db)
+
+
+@app.post("/subscriptions/{sub_id}/suggest-query")
+def suggest_query_edit(
+    sub_id: int,
+    request: Request,
+    description: str = Form(...),
+    label: str = Form(""),
+    keywords: str = Form(""),
+    journals: str = Form(""),
+    authors: str = Form(""),
+    recipient_email: str = Form(""),
+    frequency: str = Form("immediate"),
+    user: User = Depends(get_current_user),
+    db=Depends(get_db),
+):
+    _owned_subscription(db, sub_id, user)  # 只做归属校验，不保存 ownership check only, nothing saved
+    settings = get_settings(db, user.id)
+    suggested = ai.generate_query(description, settings)
+    draft = SimpleNamespace(
+        id=sub_id, label=label, recipient_email=recipient_email, frequency=frequency,
+        query_override=suggested,
+        keywords=_split_lines(keywords), journals=_split_lines(journals), authors=_split_lines(authors),
+    )
+    return render(request, "form.html", {
+        "sub": draft,
+        "frequency_choices": FREQUENCY_CHOICES,
+        "ai_configured": ai.is_configured(settings),
+        "query_suggest_description": description,
+        "query_suggest_failed": suggested is None,
     }, db)
 
 
@@ -479,11 +551,37 @@ def update_subscription(
     db=Depends(get_db),
 ):
     sub = _owned_subscription(db, sub_id, user)
+    new_keywords = _split_lines(keywords)
+    new_journals = _split_lines(journals)
+    new_authors = _split_lines(authors)
+    new_query_override = query_override.strip() or None
+
+    # 检索条件（关键词/期刊/作者/自定义检索式）真的变了的话，把这个订阅当成"重新开始"——下次检索
+    # 会像新订阅一样只发一批入门文献（最相关10篇+最新20篇，见 scheduler.py），而不是把新检索式
+    # 匹配到的几十上百篇历史文献一次性当"新发现"全部塞进一封邮件。已经见过的文章不会被重复通知
+    # （去重仍然是按这个订阅历史上所有见过的 PMID 判断的）。只改标签/收件邮箱/发送频率不会触发
+    # 这个重置，因为那些不影响检索结果。
+    # If the search criteria (keywords/journals/authors/custom query) actually changed, treat
+    # this subscription as "starting over" — the next poll sends just one starter batch (10 most
+    # relevant + 20 most recent, see scheduler.py) like a brand-new subscription, instead of
+    # dumping dozens/hundreds of historical matches from the new query into one "newly found"
+    # email. Already-seen articles still won't be re-notified (dedup is still against every PMID
+    # this subscription has ever seen). Changing only the label/recipient/frequency doesn't
+    # trigger this, since those don't affect search results.
+    search_criteria_changed = (
+        new_keywords != sub.keywords
+        or new_journals != sub.journals
+        or new_authors != sub.authors
+        or new_query_override != sub.query_override
+    )
+    if search_criteria_changed:
+        sub.initial_poll_done = False
+
     sub.label = label
-    sub.keywords = _split_lines(keywords)
-    sub.journals = _split_lines(journals)
-    sub.authors = _split_lines(authors)
-    sub.query_override = query_override.strip() or None
+    sub.keywords = new_keywords
+    sub.journals = new_journals
+    sub.authors = new_authors
+    sub.query_override = new_query_override
     sub.recipient_email = recipient_email
     sub.frequency = frequency
     db.commit()
@@ -712,6 +810,8 @@ def settings_page(request: Request, user: User = Depends(get_current_user), db=D
         "test_error": request.query_params.get("msg", ""),
         "account_saved": request.query_params.get("account_saved") == "1",
         "account_error": request.query_params.get("account_error"),
+        "ai_configured": ai.is_configured(settings),
+        "ai_test_result": request.query_params.get("ai_test"),
     }, db)
 
 
@@ -733,6 +833,11 @@ def export_account_data(user: User = Depends(get_current_user), db=Depends(get_d
             "jcr_quartile": a.jcr_quartile,
             "jif": a.jif,
             "oa_pdf_url": a.oa_pdf_url,
+            "ai_summary_en": a.ai_summary_en,
+            "ai_summary_local": a.ai_summary_local,
+            "ai_relevance_score": a.ai_relevance_score,
+            "ai_translated_title": a.ai_translated_title,
+            "ai_keywords": a.ai_keywords,
             "saved_for_reading": a.saved_for_reading,
             "priority": a.priority,
             "first_seen_at": a.first_seen_at.isoformat() if a.first_seen_at else None,
@@ -816,6 +921,27 @@ def save_settings(
     return RedirectResponse("/settings?saved=1", status_code=303)
 
 
+@app.post("/settings/ai")
+def save_ai_settings(
+    ai_backend: str = Form("anthropic"),
+    ai_provider_preset: str = Form(""),
+    ai_base_url: str = Form(""),
+    ai_api_key: str = Form(""),
+    ai_model: str = Form("claude-haiku-4-5"),
+    user: User = Depends(get_current_user),
+    db=Depends(get_db),
+):
+    settings = get_settings(db, user.id)
+    settings.ai_backend = ai_backend if ai_backend in ("anthropic", "openai_compatible") else "anthropic"
+    settings.ai_provider_preset = ai_provider_preset.strip()
+    settings.ai_base_url = ai_base_url.strip()
+    if ai_api_key.strip():
+        settings.ai_api_key = ai_api_key.strip()
+    settings.ai_model = ai_model.strip() or "claude-haiku-4-5"
+    db.commit()
+    return RedirectResponse("/settings?saved=1", status_code=303)
+
+
 @app.post("/settings/test-email")
 def send_test_email(
     to_email: str = Form(...), user: User = Depends(get_current_user), db=Depends(get_db)
@@ -826,3 +952,10 @@ def send_test_email(
     except Exception as e:
         return RedirectResponse(f"/settings?test=err&msg={quote(str(e)[:200])}", status_code=303)
     return RedirectResponse("/settings?test=ok", status_code=303)
+
+
+@app.post("/settings/test-ai")
+def test_ai_connection(user: User = Depends(get_current_user), db=Depends(get_db)):
+    settings = get_settings(db, user.id)
+    ok = ai.test_connection(settings)
+    return RedirectResponse(f"/settings?ai_test={'ok' if ok else 'err'}", status_code=303)

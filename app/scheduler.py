@@ -15,10 +15,12 @@ works the same locally and later on a cloud server.
 """
 import datetime as dt
 import logging
+from concurrent.futures import ThreadPoolExecutor
 
 from apscheduler.schedulers.background import BackgroundScheduler
+from apscheduler.triggers.cron import CronTrigger
 
-from app import mailer, pubmed, journal_rank, unpaywall
+from app import mailer, pubmed, journal_rank, unpaywall, ai
 from app.db import get_session, Subscription, SeenArticle, PendingRegistration, PasswordReset
 from app.settings import get_settings
 
@@ -29,6 +31,12 @@ TICK_MINUTES = 15  # 心跳粒度，不需要用户配置 heartbeat granularity,
 
 CLEANUP_JOB_ID = "cleanup_expired_auth_rows"
 CLEANUP_MINUTES = 60
+
+TREND_JOB_ID = "send_trend_digests"
+TREND_WINDOW_DAYS = 30  # 趋势总结抓取"最近多少天"的文章 how many trailing days the trend digest gathers
+TREND_MIN_INTERVAL = dt.timedelta(days=27)  # 留点余量,防止某次 cron 因程序重启没跑到而被拖过一整月
+
+MAX_ENRICHMENT_WORKERS = 8  # Unpaywall/AI 并发查询的线程数上限 concurrency cap for Unpaywall/AI lookups
 
 FREQUENCY_INTERVALS = {
     "immediate": dt.timedelta(seconds=0),
@@ -54,6 +62,37 @@ def is_due(sub: Subscription, now: dt.datetime) -> bool:
         return True
     interval = FREQUENCY_INTERVALS.get(sub.frequency, dt.timedelta(seconds=0))
     return (now - sub.last_dispatched_at) >= interval
+
+
+def is_trend_due(sub: Subscription, now: dt.datetime) -> bool:
+    """判断某个订阅现在是否该发"月度趋势总结"了。从没发过就是到期；发过的话要满
+    TREND_MIN_INTERVAL（27天，比一个月略短，防止某次 cron 因为程序重启没跑到，被拖过一整月）。
+    Whether a subscription is due for its "monthly trend digest". Never sent before means due;
+    otherwise due once TREND_MIN_INTERVAL (27 days — slightly under a month, so a missed cron
+    firing from a restart doesn't push it out a full extra month) has passed.
+    """
+    if sub.last_trend_sent_at is None:
+        return True
+    return (now - sub.last_trend_sent_at) >= TREND_MIN_INTERVAL
+
+
+def _subscription_topic(sub: Subscription) -> str:
+    parts = [sub.label]
+    if sub.keywords:
+        parts.append("keywords: " + ", ".join(sub.keywords))
+    return " | ".join(parts)
+
+
+def _fetch_enrichment(art: dict, sub: Subscription, settings, langs):
+    """在线程池的工作线程里跑：查 Unpaywall 全文链接 + 生成 AI 内容，两个都是慢的网络调用。
+    只读数据（art/sub 的属性、settings），不碰数据库会话，所以可以安全地多线程并发跑。
+    Runs inside a thread-pool worker: looks up the Unpaywall full-text link and generates AI
+    content — both slow network calls. Only reads data (art/sub attributes, settings), never
+    touches the database session, so it's safe to run concurrently across threads.
+    """
+    oa_pdf_url = unpaywall.lookup(art["doi"])
+    enrichment = ai.enrich_article(art, _subscription_topic(sub), langs, settings) or {}
+    return oa_pdf_url, enrichment
 
 
 def poll_subscription(session, sub: Subscription, settings):
@@ -105,18 +144,44 @@ def poll_subscription(session, sub: Subscription, settings):
         .filter(SeenArticle.subscription_id == sub.id).all()
     }
 
-    new_count = 0
+    new_articles = []
     seen_this_batch = set()  # 防止两批检索有重叠时，同一个 pmid 被插入两次
     for art in articles:
         if art["pmid"] in existing_pmids or art["pmid"] in seen_this_batch:
             continue
         seen_this_batch.add(art["pmid"])
+        new_articles.append(art)
 
+    # Unpaywall 查询、AI 生成内容都是"等网络"的慢操作，用线程池并发跑，不再一篇一篇排队等——
+    # 一次发现几十篇新文章时（比如新订阅首次检索），总耗时能从"篇数 x 单篇耗时"降到接近单篇耗时。
+    # 数据库写入（session.add）不是线程安全的，所以并发只发生在这一步，实际建行、入库还是留在
+    # 主线程里顺序执行。
+    # Unpaywall lookups and AI generation are both slow "wait on the network" operations, run
+    # concurrently in a thread pool instead of one-at-a-time — discovering dozens of new articles
+    # at once (e.g. a new subscription's first poll) drops total wait time from roughly
+    # "count × per-article time" down to close to one per-article time. Database writes
+    # (session.add) aren't thread-safe, so concurrency is scoped to this step only — building rows
+    # and inserting them stays sequential, back on the main thread.
+    langs = mailer.target_langs(settings.ui_language)
+    enrichment_by_pmid = {}
+    if new_articles:
+        with ThreadPoolExecutor(max_workers=min(MAX_ENRICHMENT_WORKERS, len(new_articles))) as pool:
+            futures = {
+                pool.submit(_fetch_enrichment, art, sub, settings, langs): art["pmid"]
+                for art in new_articles
+            }
+            for future in futures:
+                pmid = futures[future]
+                enrichment_by_pmid[pmid] = future.result()
+
+    new_count = 0
+    for art in new_articles:
         rank = journal_rank.lookup(
             journal_title=art["journal"],
             issn=art.get("issn"),
             issn_linking=art.get("issn_linking"),
         )
+        oa_pdf_url, enrichment = enrichment_by_pmid[art["pmid"]]
 
         row = SeenArticle(
             subscription_id=sub.id,
@@ -131,8 +196,14 @@ def poll_subscription(session, sub: Subscription, settings):
             jif=rank["jif"] if rank else None,
             initial_relevant=art["pmid"] in relevant_set,
             initial_recent=art["pmid"] in recent_set,
-            oa_pdf_url=unpaywall.lookup(art["doi"]),
+            oa_pdf_url=oa_pdf_url,
+            ai_summary_en=enrichment.get("summary_en"),
+            ai_summary_local=enrichment.get("summary_local"),
+            ai_relevance_score=enrichment.get("relevance_score"),
+            ai_translated_title=enrichment.get("translated_title"),
         )
+        if enrichment.get("keywords"):
+            row.ai_keywords = enrichment["keywords"]
         session.add(row)
         new_count += 1
 
@@ -172,10 +243,19 @@ def dispatch_subscription(session, sub: Subscription, settings):
     """
     now = dt.datetime.utcnow()
 
+    # 按 AI 相关性打分从高到低排序，让相关性高的文章排在邮件前面（也因此更可能落在
+    # EMAIL_MAX_ARTICLES 那个"完整展示"的上限之内，见 app/mailer.py）；没打分的文章（没配置
+    # AI，或者是配置 AI 之前就发现的老文章）分数是 NULL，SQL 排序里 NULL 天然排在最后，会
+    # 自动按 first_seen_at 退回到原来的"先发现先发送"顺序——不需要额外判断"配没配置 AI"。
+    # Sorted by AI relevance score, highest first, so more relevant articles appear earlier in
+    # the email (and are therefore more likely to fall within EMAIL_MAX_ARTICLES's "fully shown"
+    # cap — see app/mailer.py). Unscored articles (AI not configured, or discovered before AI was
+    # enabled) have a NULL score, which SQL orders last by default, so they naturally fall back to
+    # the original first-discovered-first-sent order — no separate "is AI configured" branch needed.
     pending = (
         session.query(SeenArticle)
         .filter(SeenArticle.subscription_id == sub.id, SeenArticle.sent_at.is_(None))
-        .order_by(SeenArticle.first_seen_at.asc())
+        .order_by(SeenArticle.ai_relevance_score.desc(), SeenArticle.first_seen_at.asc())
         .all()
     )
     if not pending:
@@ -201,6 +281,68 @@ def dispatch_subscription(session, sub: Subscription, settings):
         row.sent_at = now
     sub.last_dispatched_at = now
     session.commit()
+
+
+def _article_dict(a: SeenArticle) -> dict:
+    return {
+        "title": a.title, "abstract": a.abstract, "pmid": a.pmid,
+        "ai_summary_en": a.ai_summary_en,
+    }
+
+
+def _send_trend_digest_for_subscription(session, sub: Subscription, settings, now: dt.datetime):
+    window_start = now - dt.timedelta(days=TREND_WINDOW_DAYS)
+    articles = (
+        session.query(SeenArticle)
+        .filter(SeenArticle.subscription_id == sub.id, SeenArticle.first_seen_at >= window_start)
+        .order_by(SeenArticle.first_seen_at.asc())
+        .all()
+    )
+    if not articles:
+        return  # 这个月没有新文章，跳过，不动 last_trend_sent_at no new articles this month, skip
+
+    langs = mailer.target_langs(settings.ui_language)
+    prose = ai.write_trend_digest(sub.label, [_article_dict(a) for a in articles], langs, settings)
+    if prose is None:
+        return  # AI 调用失败，下个月再试，不发一封没有内容的邮件
+
+    try:
+        mailer.send_trend_digest(settings, sub, articles, prose)
+    except Exception:
+        logger.exception("发送月度趋势总结失败 (trend digest send failed) for subscription %s", sub.id)
+        return
+
+    sub.last_trend_sent_at = now
+    session.commit()
+
+
+def send_trend_digests():
+    """每月一次的"趋势总结"邮件——只对配置了 AI 的用户名下、到期的订阅生效，没配置 AI 的用户
+    静默跳过（不算错误）。
+    The once-a-month "trend digest" email — only for subscriptions belonging to users who've
+    configured AI; users without AI configured are silently skipped (not an error).
+    """
+    session = get_session()
+    try:
+        now = dt.datetime.utcnow()
+        subs = (
+            session.query(Subscription)
+            .filter(Subscription.active.is_(True), Subscription.user_id.isnot(None))
+            .all()
+        )
+        settings_cache = {}
+        for sub in subs:
+            if not is_trend_due(sub, now):
+                continue
+            settings = settings_cache.get(sub.user_id)
+            if settings is None:
+                settings = get_settings(session, sub.user_id)
+                settings_cache[sub.user_id] = settings
+            if not ai.is_configured(settings):
+                continue
+            _send_trend_digest_for_subscription(session, sub, settings, now)
+    finally:
+        session.close()
 
 
 def run_check_due():
@@ -276,6 +418,15 @@ def start_scheduler():
         minutes=CLEANUP_MINUTES,
         next_run_time=dt.datetime.now(),
         id=CLEANUP_JOB_ID,
+        max_instances=1,
+    )
+    _scheduler.add_job(
+        send_trend_digests,
+        trigger=CronTrigger(day=1, hour=8),
+        # 故意不给 next_run_time——"每月一次"的任务不应该在每次程序重启时也跟着多跑一次。
+        # Deliberately no next_run_time — a "once a month" job shouldn't also fire on every
+        # process restart.
+        id=TREND_JOB_ID,
         max_instances=1,
     )
     _scheduler.start()

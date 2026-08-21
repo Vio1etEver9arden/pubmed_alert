@@ -6,12 +6,17 @@
 
 ## 当前版本
 
-- v1.2.1（`app/__init__.py` 里的 `__version__`）——**还没 push 到 GitHub**，只在这台本地机器上
-  （v1.2.0 已经确认 push 过了，`git log`/`origin/main` 对得上）。这个版本号覆盖：RIS 引文导出、
-  关键词分隔符支持逗号/顿号/分号、文献列表和待阅读清单加搜索框、「设置」页一键导出个人数据
-  备份（JSON）、文献1–5星阅读优先级、开放获取全文 PDF 链接（Unpaywall，见下面单独一节）、
-  同一文章命中多个订阅时的邮件标注（见下面单独一节），以及**第一批自动化测试**（`tests/`
-  目录，pytest，见下面单独一节）。见 `CHANGELOG.md` 的 `[1.2.1]` 条目。
+- v1.3.0（`app/__init__.py` 里的 `__version__`）——**还没 push 到 GitHub**，只在这台本地机器上
+  （v1.2.1 已经确认 push 过了）。这个版本号覆盖：**按用户自愿开启、多供应商的 AI 功能**（总结/
+  相关性打分/标题翻译/关键词提取/自然语言生成检索式/月度趋势总结，见下面单独一节）、影响因子
+  徽章按数值分档上色、邮件按用户界面语言决定纯英文还是双语、待发送文献按 AI 相关性排序、邮件
+  最多完整展示20篇文献（超出的改成"查看完整列表"链接）、编辑订阅关键词会重置成"发一批入门
+  文献"、Unpaywall/AI 查询改成并发执行、修了几个用户在真实使用中发现的 bug（见下面单独一节）。
+  **撤回**了 1.2.1 里"关键词支持逗号/顿号/分号分隔"这个功能（期刊名字本身可能带逗号，按逗号拆
+  会拆错）。见 `CHANGELOG.md` 的 `[1.3.0]` 条目。
+- v1.2.1：RIS 引文导出、文献列表和待阅读清单加搜索框、「设置」页一键导出个人数据备份（JSON）、
+  文献1–5星阅读优先级、开放获取全文 PDF 链接（Unpaywall）、同一文章命中多个订阅时的邮件标注、
+  第一批自动化测试（`tests/` 目录，pytest）。
 - v1.2.0：完整的多用户登录系统（账号/session/邀请码/所有权校验）、注册改成两步邮箱验证、登录
   支持用户名或邮箱、找回密码、设置页密码区域折叠、首次检索改成"相关10篇+最新20篇"双批次、
   跨订阅统一的待阅读清单（网页勾选 + 邮件里不需要登录的"选择要加入待阅读的文献"链接）。
@@ -26,6 +31,12 @@ username 字段的时候注册的），加 username 列的迁移给它自动回�
 换回来），不能直接对着 `data/subscriptions.db` 做注册/登录的破坏性测试。用户大概率还不知道自己
 被自动分配了这个占位用户名，如果他问起"我的用户名是什么"或者登录一直失败，提醒他这件事，並可以
 建议他在设置页看一眼（当前 UI 还没做"改用户名"功能，只能改密码）。
+
+**这个账号现在还真的配置了 AI**（`ai_backend=openai_compatible`，供应商是 Google Gemini，型号
+`gemini-3.6-flash`，Key 是加密存的真实值）——以后如果要写脚本/测试直接读写这个账号的
+`AppSettings` 行，**只做只读查询是安全的**，但绝对不要写一个会真的触发 `app.ai.enrich_article`
+之类函数的脚本去跑这个账号的数据（会真的消耗用户自己的 API 额度/费用），跟"不要在真实数据库上
+做破坏性测试"是同一条原则的延伸。
 
 ## 这个仓库的约定（已经跟用户确认过，别再问一遍）
 
@@ -105,18 +116,97 @@ username 字段的时候注册的），加 username 列的迁移给它自动回�
   不会持久化）。按用户明确要求：**两边邮件都照常发，只是加一句提示**，不是"只发一次/去重"。
   这个函数按 `user_id` 过滤，不会跨用户泄露另一个人的订阅名字。
 
-## 自动化测试（v1.2.1 新增）
+## AI 功能（v1.3.0 新增，按用户自愿开启、多供应商）
 
-- `tests/` 目录，pytest，跑 `python3 -m pytest tests/ -v`。`tests/conftest.py` 在任何
-  `app.*` 模块被 import 之前先把 `PUBMED_ALERT_DATA_DIR` 设成一个临时文件夹（测试永远不会碰到
-  真实的 `data/subscriptions.db`），并且有一个 `autouse=True` 的 fixture 把
-  `app.mailer.send_verification_email`/`send_digest`/`send_test_email` 全部换成空函数——**这
-  一点很关键**：早期漏了这层 mock，导致跑测试时真的用 `.env` 里配置的真实 Gmail 账号往
-  `@example.com` 发了十几封验证码邮件（好在 `example.com` 是 RFC 2606 保留的不可送达域名，没
-  真人收到，但确实产生了真实的outbound SMTP流量），修复后才安全。
+- **架构**：`app/ai.py` 是唯一对外接口（`is_configured`/`enrich_article`/`generate_query`/
+  `write_trend_digest`/`test_connection`），内部按 `AppSettings.ai_backend`
+  （只有两个取值："anthropic" 或 "openai_compatible"）转发给
+  `app/ai_backends/anthropic_backend.py` 或 `app/ai_backends/openai_compatible_backend.py`。
+  Claude 走官方 `anthropic` SDK；OpenAI/Gemini/DeepSeek/通义千问/Grok/豆包全部走同一个
+  `openai_compatible_backend.py`（用 `openai` 这个 Python 包，只换 `base_url`）——这几家官方
+  文档都确认支持 OpenAI 兼容调用方式，**不是**给每家单独写的对接代码。所有实际发给模型的
+  提示词文字集中在 `app/ai_prompts.py` 一个文件里，方便以后单独调优。
+- **完全按用户自愿开启，没有系统级共享 key**：`AppSettings` 上的 `ai_backend`/
+  `ai_provider_preset`（纯 UI 用，记录下拉框选的品牌）/`ai_base_url`/`ai_api_key_enc`
+  （加密，仿 `sender_password_enc` 写法）/`ai_model`（自由文本，不做下拉限定死列表，因为
+  模型名字更新很快）。`ai.is_configured()` 没填 key 就返回 False，调用方（`scheduler.py`）
+  无条件调用这几个函数，未配置时直接返回 `None`，不报错、不影响主流程——跟 `unpaywall.lookup()`
+  是同一套"锦上添花、失败即跳过"的哲学。
+- **豆包（火山方舟 Ark）没有一手文档验证过**，只查到二手资料佐证；而且它的"模型名字"字段实际上
+  要填控制台创建的"推理接入点ID"（`ep-` 开头），不是模型名——这条在设置页有专门提示，用户应该
+  先点"测试 AI 连接"确认。Gemini 官方文档自己写明"OpenAI 兼容层还在 beta"，实测也确实碰到过
+  不稳定的输出（见下面"已知问题 / 已修复的 bug"）。
+- **语言规则**：邮件（含月度趋势总结）跟着订阅所有者的 `AppSettings.ui_language` 走——英文界面
+  发纯英文，中/日界面发"英文+对应语言"双语（`app/mailer.py` 的 `target_langs()`）。摘要原文
+  永远不翻译；AI 提取的关键词永远只用英文；标题翻译只在界面语言不是英文时才生成。`enrich_article`
+  的 JSON schema 是动态的：只有 `target_langs` 长度>1 时才问模型要 `summary_local`/
+  `translated_title` 这两个字段，省 token。
+- **相关性打分只是主观参考，不是精确测量**：0-100 分是 AI 读完文章和订阅主题后的直觉判断，
+  换个时间/换个模型分数会有浮动。**只用来排序，不用来过滤/隐藏邮件**——待发送文献现在按
+  `ai_relevance_score DESC, first_seen_at ASC` 排序（`scheduler.py` 的 `dispatch_subscription`），
+  没打过分的文章 `NULL` 会被 SQL 自然排到最后、回退成原来的按时间顺序，**不需要**额外判断
+  "有没有配置AI"。
+- **每篇文章的 AI 内容只在首次发现时生成一次，不会重试/回填**——跟 Unpaywall、JCR 分区完全
+  同一套设计。`app/scheduler.py` 的 `poll_subscription()` 里，Unpaywall 查询和 AI 生成内容
+  现在用 `ThreadPoolExecutor`（`MAX_ENRICHMENT_WORKERS=8`）并发跑，因为这两个都是纯读网络请求，
+  不碰数据库会话；**数据库写入（`session.add`）必须留在主线程顺序执行**，并发只发生在
+  `_fetch_enrichment()` 这一步。
+- **每月一次的趋势总结**：`scheduler.py` 的 `send_trend_digests()`，用 `CronTrigger(day=1,
+  hour=8)` 注册（故意不给 `next_run_time`，不想让"每月一次"的任务在每次程序重启时也跟着多跑
+  一次）。抓取窗口是"距现在往前30天"的固定滑窗（`SeenArticle.first_seen_at`，不是 `pub_date`——
+  后者是抓取自 PubMed 的自由文本，格式不稳定），不是"距上次发送以来"，所以某个月跳过不会导致
+  下个月内容重复/遗漏。`last_trend_sent_at` 只在真的发出邮件后才更新。
+- **自然语言生成检索式**：`form.html` 里用 `formaction`/`formnovalidate` 让"AI 生成检索式"
+  按钮把整个表单提交到 `POST /subscriptions/new/suggest-query`（或
+  `/subscriptions/{id}/suggest-query`），重新渲染同一个表单、把生成结果填进 `query_override`
+  框——**不会自动保存**，用户还要手动点正常的保存/创建按钮。没走 AJAX，符合这个项目"服务端
+  渲染表单"的一贯风格。
+- **`prompt_lab/`**：开发用的提示词测试脚手架（`fixtures.py` 真实文章样本 + `run_comparison.py`
+  跑分脚本），不属于 `app/` 也不会被 `pytest` 收集，没配置环境变量就不会有真实调用。用户说
+  "先搭好框架，具体测哪些 prompt 变体以后再细聊"——目前只是个空壳，还没有真的做多个候选提示词
+  互相对比的功能。
+
+## 已知问题 / 已修复的 bug（都是用户拿真实数据测试出来的，不是我自己发现的）
+
+- **设置页两个表单互相清空对方的值**（已修复）：「发件邮箱」和「AI 功能」曾经是两个 `<form>`
+  但都提交到同一个 `/settings` 路由——浏览器提交表单只带自己的字段，另一半字段在 `Form(...)`
+  里有默认值，会被 FastAPI 悄悄当成"用户填了空值"直接覆盖掉。现在分成 `/settings`（邮箱）和
+  `/settings/ai`（AI）两个独立路由，各自只碰自己的字段。`tests/test_settings_isolation.py`
+  专门盯着这个不要退化。
+- **Gemini 偶尔返回截断/夹带多余文字的 JSON**（已缓解，不能保证 100% 不再发生）：现象是"有的
+  文章有 AI 总结，有的没有"——不是随机的，日志里全是 `JSONDecodeError`。缓解措施：
+  `app/ai_prompts.py` 新增 `parse_json_response()`，直接解析失败会依次尝试"去掉 ```json 代码块
+  标记"、"截取第一个{到最后一个}之间的内容"再解析；`enrich_article` 的 `max_tokens` 从 1024
+  调到了 4096（怀疑是"思考"消耗掉了太多输出预算，具体没有一手资料完全证实，只是实测调大之后
+  好转）。真要 100% 稳定建议换 Claude——结构化输出是服务端强制保证格式的。
+- **编辑订阅关键词会导致邮件发出接近100篇"新"文献**（已修复）：`update_subscription()` 以前
+  完全不管检索条件变没变，编辑后 `initial_poll_done` 还是 True，下次轮询走增量分支（默认一次
+  最多抓100篇），换了新关键词等于几乎全部文章对这个订阅来说都是"没见过的"。现在编辑时会比较
+  新旧的关键词/期刊/作者/自定义检索式，真的变了才把 `initial_poll_done` 重置为 False（下次
+  检查表现得像新订阅一样，只发一批入门文献，最多约30篇）。只改标签/收件邮箱/频率不会触发。
+- **邮件文献太多显示不全**（已修复）：Gmail 等邮箱对邮件正文大小有硬性限制（约102KB），加了
+  AI 总结/关键词/翻译标题之后单篇文章占用空间变大，二三十篇往上就有实测撞到这个上限的风险。
+  现在 `app/mailer.py` 的 `EMAIL_MAX_ARTICLES = 20` 把邮件正文封顶在20篇完整展示，超出部分
+  改成"查看完整列表"的网页链接（需要 `APP_BASE_URL` 才有链接，没配置就只显示文字提示）。
+
+## 自动化测试
+
+- `tests/` 目录，pytest，跑 `python3 -m pytest tests/ -v`（目前 80+ 个测试全绿）。
+  `tests/conftest.py` 在任何 `app.*` 模块被 import 之前先把 `PUBMED_ALERT_DATA_DIR` 设成一个
+  临时文件夹（测试永远不会碰到真实的 `data/subscriptions.db`），并且有一个 `autouse=True` 的
+  fixture 把 `app.mailer.send_verification_email`/`send_digest`/`send_test_email` 全部换成空
+  函数——**这一点很关键**：早期漏了这层 mock，导致跑测试时真的用 `.env` 里配置的真实 Gmail 账号
+  往 `@example.com` 发了十几封验证码邮件（好在 `example.com` 是 RFC 2606 保留的不可送达域名，
+  没真人收到，但确实产生了真实的outbound SMTP流量），修复后才安全。**AI 相关的测试
+  （`tests/test_ai.py` 等）同理**——全部用 `monkeypatch` 换掉 `anthropic.Anthropic`/
+  `openai.OpenAI`，永远不连真实的 AI API、不产生真实费用。
 - `tests/test_ownership.py` 是最重要的一份，回归测试所有 IDOR/权限隔离逻辑（改 URL 编号操作
-  别人订阅这类漏洞）；其余文件测纯逻辑（密码哈希、邀请码、验证码、RIS格式化、关键词拆分、跨
-  订阅重复检测）。
+  别人订阅这类漏洞）。其余按主题拆分：`test_ai.py`/`test_ai_json_parsing.py`（AI 两条后端路径 +
+  JSON 容错解析）、`test_relevance_sort.py`（按相关性排序+NULL回退）、`test_trend_digest.py`
+  （月度到期判断+语言规则）、`test_email_truncation.py`（邮件20篇上限）、
+  `test_subscription_edit.py`（编辑订阅重置首次检索标记）、`test_settings_isolation.py`
+  （两个设置表单不互相清空），其余测纯逻辑（密码哈希、邀请码、验证码、RIS格式化、关键词拆分、
+  跨订阅重复检测、JIF分档上色）。
 
 ## 未完成 / 待跟进的事项
 
@@ -125,10 +215,17 @@ username 字段的时候注册的），加 username 列的迁移给它自动回�
    （e2-micro 也永久免费但要绑卡，稍有不慎会真扣费，用户对此有顾虑）。下次接着聊的话，从"自建
    服务器 + 部署这个已经做好登录的版本"这个方向继续：帮忙配置开机自启（systemd）、Tailscale
    远程访问、把 `.env` 里的 `REGISTER_INVITE_CODE` 设成一个好记的值。
+2. **`prompt_lab/` 只是个空壳**：用户说会另外提供 API Key、以后再细聊具体要测哪些提示词变体，
+   目前 `run_comparison.py` 只是跑一遍 `app/ai_prompts.py` 里已有的提示词，没有"多个候选互相
+   对比"的功能。
+3. **AI 功能刚上线不久，用户还在实际使用中持续发现边界情况**：目前每次用户反馈的问题基本都是
+   真实使用中暴露出来的（见上面"已知问题/已修复的 bug"），预期后续可能还会陆续冒出类似的、需要
+   针对真实数据现场诊断的问题，不是一次性能穷举完的。
 
 ## 项目本身是什么
 
 一个本地跑的 PubMed 文献订阅提醒工具（FastAPI + APScheduler + SQLite），按关键词/期刊/作者
-订阅新文献，定期发邮件，邮件里标注 JCR 影响因子/分区（可选）。详细功能和使用方法看根目录的
-`README.zh.md`（中文）/ `README.md`（英文）/ `README.ja.md`（日文），代码结构很小（`app/`
-目录下总共约1300+行），直接读代码即可，不需要在这里重复。
+订阅新文献，定期发邮件，邮件里标注 JCR 影响因子/分区（可选），可选接入 AI 生成总结/相关性/
+翻译/关键词。详细功能和使用方法看根目录的 `README.zh.md`（中文）/ `README.md`（英文）/
+`README.ja.md`（日文），代码结构不算大（`app/` 目录下 Python 代码约 3700 行），直接读代码
+即可，不需要在这里重复。
